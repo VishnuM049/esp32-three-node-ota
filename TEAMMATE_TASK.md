@@ -1,12 +1,26 @@
-# Teammate handoff — Micro-USB edge board
+# Teammate handoff — edge board AND firmware security
 
-You own **edge 1 hardware testing**, not the laptop signing tool or controller code. Read `README.md` first. Firmware is currently a **transport prototype, not secure OTA**.
+**Public repo:** https://github.com/VishnuM049/esp32-three-node-ota
 
-1. Get a Micro-USB **data** cable, connect your board, and check that a new serial port appears (on macOS: `ls /dev/cu.usb*`). A lit LED alone isn't proof. Report the exact port, flash size, and chip type. If not a classic ESP32 with 4 MB flash, STOP and report before flashing.
-2. Once you have ESP32 Arduino support installed, initially USB-flash **edge1 v1** using `./flash_initial.sh edge1 /dev/cu.usbserial-...`. The script asks for confirmation and checks the chip/flash. Never use the edge2 or controller image on this board.
-3. Leave the board powered by USB and look at its USB serial output (115200 baud): it should try to join Wi-Fi `OTA-CLASS-DEMO`. It cannot connect until the controller board is powered nearby. Send us its boot output and whether it registers with the controller.
-4. Once the controller is available, test `GET http://<edge-IP>:8080/status` and *then* ask before trying edge1 v2 OTA through the controller. See `README.md` for the forwarding command.
+```bash
+git clone https://github.com/VishnuM049/esp32-three-node-ota.git
+cd esp32-three-node-ota
+```
 
-**Do not modify** `ota_prototype.ino`, `build_all.sh`, or `firmware/` while we work on signing integration. If you find a firmware bug, send the serial log and proposed fix; we will integrate it in one place. You can put test notes in `docs/edge1-test.md` and commit that file on your own branch.
+Read `README.md` and `SIGNING_TASK.md` first. This is a **transport prototype, not yet secure OTA**. The working controller board is with Vishnu; you have the Micro-USB edge board. Work on a separate branch, e.g. `teammate-signing`, and send a pull request. Do not commit private signing keys, passwords, machine-specific settings or huge build caches. Because the repo is PUBLIC, never paste real secrets in issues or commits.
 
-Nothing is plug-and-play yet: the controller-to-edge relay and Wi-Fi OTA have not been verified on physical hardware. Do not report that the three-node demo works before testing it.
+## Your primary deliverable: Ed25519 signed OTA (substantial coding)
+
+1. **Laptop signing tool** in `host_signing/` (see `SIGNING_TASK.md`). Use a maintained Python library (`cryptography`); no custom curve math. Generate a private/public key pair locally. The private key stays on your laptop and must never be committed. Emit a binary manifest and a 32-byte public key that can be embedded in firmware; sign exact image digest + target role + version + length. Implement negative tests (changed image, wrong key, wrong role, altered version, missing/truncated manifest).
+2. **ESP32-side verification module** in new files such as `SignedUpdate.h/.cpp`, leaving `ota_prototype.ino` alone so our edits do not conflict. Agree on the binary manifest layout in `SIGNING_TASK.md`. Choose a compatible, maintained Ed25519 verifier for ESP32/Arduino and get it to compile; do NOT implement cryptography yourself. Expose a small API for checking signed metadata, image SHA-256 and target role/version. Investigate how to check the incoming image's complete hash **before selecting it as the next boot image**; simply checking a manifest without checking the image is not sufficient. Report any library/flash-size blocker rather than weakening security silently.
+3. **Integration handoff:** write `docs/security-integration.md` showing exact functions/call order, required library installation, build instructions, and how to inject the public key. Submit your module and tests as a PR; we will merge it into the controller/edge transport code here. A host-only signer does not make OTA secure: ESP32-side rejection tests must pass before we claim it.
+
+Prioritize (1) then (2). If hardware/time blocks (2), submit (1), tests, and the precise interface so we can finish device integration. Anti-downgrade, boot rollback, and Noise-style link encryption are **additional** requirements, not completed by Ed25519 alone. Do not promise them without tests.
+
+## Hardware deliverable: Micro-USB edge 1
+
+4. Obtain a Micro-USB **data** cable, connect the board, and verify a USB serial port appears (`ls /dev/cu.usb*` on a Mac). Check exact chip and flash size. Report it to us. The supplied binaries/partition table are for **classic ESP32, 4 MB flash**; do not flash an unverified different chip/size.
+5. Initial-flash **edge1 v1** with `./flash_initial.sh edge1 /dev/cu.usbserial-...` once your Arduino IDE 2 + Espressif ESP32 core are installed on your computer. The repo contains prebuilt v1 binaries, but the script needs Arduino CLI bundled with Arduino IDE. The script will ask for confirmation. Do not choose controller/edge2 for this board. At 115200 serial baud, it should try to join Wi-Fi `OTA-CLASS-DEMO` when the controller is powered nearby.
+6. With controller nearby, confirm it registers at `http://192.168.4.1/status` and responds at `http://<edge-ip>:8080/status`. Send boot messages and failures. Only after that, coordinate an edge1 v2 OTA through the controller, then prove edge1 reports version 2. **Physical relay has not been tested yet.** Record your results in `docs/edge1-test.md`.
+
+Vishnu/assistant will run the controller's v1→v2 Wi-Fi OTA test, integrate your verification module, handle controller/edge2 flashing once the replacement arrives, and test end-to-end. Share problems early; do not wait until the final hour to report a blocker.

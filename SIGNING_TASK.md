@@ -1,4 +1,6 @@
-# Teammate handoff — host-side signing work (independent of the boards)
+# Signing protocol specification — teammate owns implementation
+
+**Repo:** https://github.com/VishnuM049/esp32-three-node-ota (PUBLIC). Coordinate this format with `TEAMMATE_TASK.md` before implementation. Never commit the private key or paste it in an issue.
 
 The current code is a **transport prototype, not secure OTA**. Read `README.md` first. DO NOT edit `ota_prototype.ino`, `build_all.sh`, or existing firmware binaries while the transport is being tested. Put your files in a new `host_signing/` folder so work can be merged without conflicts.
 
