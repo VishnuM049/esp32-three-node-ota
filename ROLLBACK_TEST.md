@@ -1,6 +1,6 @@
 # Next experiments (NOT yet demonstrated on hardware)
 
-Current physical state: controller, edge1 and edge2 all run secure signed-OTA v4 (see SECURE_OTA.md). Keep these proven images; the new rollback code on this branch must be tested before making claims.
+Current physical state: controller, edge1 and edge2 all run secure signed-OTA v4 (see SECURE_OTA.md). The connected controller was read-only identified as classic ESP32, 4 MB flash, MAC `20:50:0d:1b:64:d8` on `/dev/cu.usbserial-110` (port may change). The signed controller v4 image and manifest are retained under ignored `secure_firmware/controller_v4/` and passed local signature verification. Keep these proven images; the new rollback code on this branch must be tested before making claims.
 
 ## Edge rejection tests (no flashing)
 
@@ -26,13 +26,13 @@ Images fit the 1.25 MB OTA slots. A compiler symbol check of v5 shows `verifyRol
 ```bash
 ./host_signing/send_rollback_test.sh 5
 # after reboot query: curl --noproxy '*' --max-time 5 http://192.168.4.1/status
-# MUST report role=0 version=5 before proceeding
+# MUST report role=0 version=5 AND ota=valid before proceeding
 ./host_signing/send_rollback_test.sh 6
 # enter ROLLBACK confirmation; after reboot query /status again
-# EXPECT role=0 version=5 (NOT 6)
+# EXPECT role=0 version=5 ota=valid (NOT 6); last_invalid should identify rejected OTA slot
 ```
 
-Run each **once**; if the Mac switches back to its usual Wi-Fi during reboot, rejoin the ESP32 AP rather than re-sending an image. If v5 does not boot, STOP and recover via USB; do not send v6. A missing AP or no reply after v6 is NOT proof of rollback. The preceding v4 slot may be replaced during the v5 install; recovery uses USB if the firmware/bootloader fails.
+The new firmware's `/status` includes `ota=` (state of its running image) and `last_invalid=` (most recent rejected slot) as diagnostic evidence; the older v4 does not expose these fields. The v6 script refuses to run unless v5 reports `ota=valid`. Run each **once**; if the Mac switches back to its usual Wi-Fi during reboot, rejoin the ESP32 AP rather than re-sending an image. If v5 does not boot, STOP and recover via USB; do not send v6. A missing AP or no reply after v6 is NOT proof of rollback. The preceding v4 slot may be replaced during the v5 install; recovery uses USB if the firmware/bootloader fails.
 
 ## Limits
 

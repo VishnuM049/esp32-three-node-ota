@@ -41,6 +41,17 @@ static const size_t SIGNED_HEADER_SIZE = 45;
 static bool cryptoReady = false;
 WiFiServer server(port);
 
+static const char *otaStateName(esp_ota_img_states_t state) {
+  switch (state) {
+    case ESP_OTA_IMG_NEW: return "new";
+    case ESP_OTA_IMG_PENDING_VERIFY: return "pending";
+    case ESP_OTA_IMG_VALID: return "valid";
+    case ESP_OTA_IMG_INVALID: return "invalid";
+    case ESP_OTA_IMG_ABORTED: return "aborted";
+    default: return "unknown";
+  }
+}
+
 static int hexDigit(char ch) {
   if (ch >= '0' && ch <= '9') return ch - '0';
   if (ch >= 'a' && ch <= 'f') return ch - 'a' + 10;
@@ -170,6 +181,12 @@ static void handle(WiFiClient &client) {
   if (method == "GET" && path == "/status") {
     String state = "role=" + String(NODE_ROLE) + " version=" + String(FW_VERSION);
     if (NODE_ROLE == 0) state += " edge1=" + edge1.toString() + " edge2=" + edge2.toString();
+    esp_ota_img_states_t imageState;
+    if (esp_ota_get_state_partition(esp_ota_get_running_partition(), &imageState) == ESP_OK)
+      state += " ota=" + String(otaStateName(imageState));
+    else state += " ota=unknown";
+    const esp_partition_t *lastBad = esp_ota_get_last_invalid_partition();
+    state += " last_invalid=" + String(lastBad ? lastBad->label : "none");
     reply(client, 200, state);
     return;
   }

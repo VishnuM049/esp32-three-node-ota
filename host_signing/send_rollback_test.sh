@@ -18,6 +18,7 @@ state=$(curl --noproxy '*' --connect-timeout 3 --max-time 5 --fail-with-body -sS
 echo "Before: $state"
 [[ "$state" == *"role=0 version=$current"* ]] || { echo 'Unexpected controller version; refusing update.' >&2; exit 1; }
 if [[ "$1" == 6 ]]; then
+  [[ "$state" == *"ota=valid"* ]] || { echo 'v5 is not confirmed valid; refusing rollback experiment.' >&2; exit 1; }
   echo 'IMPORTANT: v6 is deliberately signed but fails its first-boot self-test.'
   echo 'Expected result is rollback to v5; losing contact is NOT proof of success.'
   read -r -p 'Type ROLLBACK to send the intentionally failing OTA test: ' answer
