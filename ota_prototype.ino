@@ -5,6 +5,7 @@
 #include <WiFi.h>
 #include <Update.h>
 #include <sodium.h>
+#include <esp_ota_ops.h>
 #include "TrustedPublicKey.h" // Public key only. Private signing key stays on laptop.
 
 #ifndef NODE_ROLE
@@ -13,6 +14,15 @@
 #ifndef FW_VERSION
 #define FW_VERSION 1
 #endif
+#ifndef FORCE_SELF_TEST_FAILURE
+#define FORCE_SELF_TEST_FAILURE 0
+#endif
+#ifndef CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
+#error This rollback build requires an Arduino ESP32 core with bootloader app rollback enabled.
+#endif
+// Arduino's default hook confirms an OTA image before setup() can test Wi-Fi.
+// Defer confirmation until our first-boot diagnostics complete in setup().
+extern "C" bool verifyRollbackLater(void) { return true; }
 #if NODE_ROLE < 0 || NODE_ROLE > 2
 #error NODE_ROLE must be 0, 1, or 2
 #endif
@@ -37,7 +47,7 @@ static int hexDigit(char ch) {
   return -1;
 }
 
-static bool decodeManifest(const String &hex, uint8_t out[MANIFEST_SIZE]) {
+static bool decodeManifest(const String &hex, uint8_t *out) {
   if (hex.length() != MANIFEST_SIZE * 2) return false;
   for (size_t i = 0; i < MANIFEST_SIZE; ++i) {
     int hi = hexDigit(hex[2 * i]), lo = hexDigit(hex[2 * i + 1]);
@@ -52,7 +62,7 @@ static uint32_t le32(const uint8_t *in) {
          ((uint32_t)in[2] << 16) | ((uint32_t)in[3] << 24);
 }
 
-static bool verifySignedMetadata(const uint8_t manifest[MANIFEST_SIZE], uint8_t expectedRole,
+static bool verifySignedMetadata(const uint8_t *manifest, uint8_t expectedRole,
                                  size_t contentLength, uint32_t minVersion, String &reason) {
   if (!cryptoReady) { reason = "Crypto unavailable"; return false; }
   if (memcmp(manifest, "OTA1", 4) != 0) { reason = "Wrong manifest format"; return false; }
@@ -240,19 +250,45 @@ void setup() {
   if (!cryptoReady) Serial.println("ERROR: libsodium unavailable; ALL updates will be rejected");
   delay(300);
   Serial.printf("Boot: role=%d version=%d flash=%u\n", NODE_ROLE, FW_VERSION, ESP.getFlashChipSize());
+  bool networkReady = false;
   if (NODE_ROLE == 0) {
     WiFi.mode(WIFI_AP);
-    if (!WiFi.softAP(AP_NAME, AP_PASSWORD)) Serial.println("ERROR: AP did not start");
+    bool started = WiFi.softAP(AP_NAME, AP_PASSWORD);
+    networkReady = started && WiFi.softAPIP() == gateway;
+    if (!networkReady) Serial.println("ERROR: AP did not start correctly");
     Serial.print("Controller address: "); Serial.println(WiFi.softAPIP());
   } else {
     WiFi.mode(WIFI_STA);
     WiFi.begin(AP_NAME, AP_PASSWORD);
     Serial.printf("Edge %d joining controller", NODE_ROLE);
-    while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print('.'); }
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - start < 10000) {
+      delay(500);
+      Serial.print('.');
+    }
+    networkReady = WiFi.status() == WL_CONNECTED;
     Serial.print("\nEdge address: "); Serial.println(WiFi.localIP());
   }
   server.begin();
-  Serial.printf("Listening on port %d\n", port);
+  Serial.printf("Listening on port %d (network ready: %s)\n", port, networkReady ? "yes" : "no");
+
+  const esp_partition_t *running = esp_ota_get_running_partition();
+  esp_ota_img_states_t otaState;
+  if (esp_ota_get_state_partition(running, &otaState) == ESP_OK &&
+      otaState == ESP_OTA_IMG_PENDING_VERIFY) {
+    // Demo self-test: crypto available and controller AP/edge connection is live.
+    // The failure flag is compiled into a deliberately failing signed test image.
+    bool passed = cryptoReady && networkReady && !FORCE_SELF_TEST_FAILURE;
+    if (passed) {
+      Serial.println("First-boot self-test passed; confirming OTA image");
+      if (esp_ota_mark_app_valid_cancel_rollback() != ESP_OK)
+        Serial.println("ERROR: could not confirm new OTA image");
+    } else {
+      Serial.println("First-boot self-test FAILED; reverting to previous OTA slot");
+      esp_err_t err = esp_ota_mark_app_invalid_rollback_and_reboot();
+      Serial.printf("ERROR: rollback failed: %d (USB recovery may be needed)\n", (int)err);
+    }
+  }
 }
 
 void loop() {

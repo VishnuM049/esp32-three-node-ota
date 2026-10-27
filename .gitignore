@@ -1,6 +1,7 @@
 # Generated temporary build products (reproducible)
 build/
 secure_firmware/
+rollback_firmware/
 *.manifest
 *.elf
 *.map
