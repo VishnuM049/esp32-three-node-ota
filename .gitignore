@@ -1,5 +1,7 @@
 # Generated temporary build products (reproducible)
 build/
+secure_firmware/
+*.manifest
 *.elf
 *.map
 *.merged.bin
