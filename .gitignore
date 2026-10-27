@@ -1,0 +1,21 @@
+# Generated temporary build products (reproducible)
+build/
+*.elf
+*.map
+*.merged.bin
+*_flashed.bin
+.arduinoIDE/
+.DS_Store
+__pycache__/
+.pytest_cache/
+.venv/
+
+# Never commit signing secrets or local configuration
+*.key
+*.pem
+*.p12
+*.pfx
+.env
+.env.*
+private_keys/
+secrets/
