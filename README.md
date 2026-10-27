@@ -1,6 +1,6 @@
 # Three-ESP32 OTA transport prototype — NOT YET SECURE OTA
 
-**Status:** All six prototype binaries compile for the classic ESP32 with 4 MB flash. Controller v1 was flashed to one working board; controller v2 was then sent over Wi-Fi to `/update`, and `GET /status` independently confirmed `role=0 version=2` after reboot. The Mac automatically left `OTA-CLASS-DEMO` during the reboot, so the original test script falsely reported that confirmation failed; that script has been fixed. **Controller-to-edge forwarding has not been tested**. The remaining boards must be connected and initially flashed before a three-device result can be claimed.
+**Status:** All six prototype binaries compile for the classic ESP32 with 4 MB flash. Controller v1 was flashed to one working board; controller v2 was then sent over Wi-Fi to `/update`, and `GET /status` independently confirmed `role=0 version=2` after reboot. The Mac automatically left `OTA-CLASS-DEMO` during the reboot, so the original test script falsely reported that confirmation failed; that script has been fixed. **Controller-to-edge forwarding has not been tested**. A newly purchased second board was detected as ESP32-D0WD-V3 with 4 MB flash and USB-flashed with **edge2 v1**; the upload hash verified. Its joining/registration and wireless update are still untested. The teammate's Micro-USB edge1 board must still be connected and initially flashed before a three-device result can be claimed.
 
 **Security warning:** This version has **no developer signature verification, no downgrade protection, no post-boot rollback confirmation, and no Noise-style authenticated encryption**. A Wi-Fi password is not a substitute. Anyone on the demo Wi-Fi can upload firmware. Use only for short, supervised testing, not as a security demonstration or production device. All firmware images should remain under 1.25 MB using the Arduino ESP32 default 4 MB partition layout (`ota_0`, `ota_1`).
 
@@ -33,8 +33,8 @@ The working board is currently on **controller v2**, confirmed by querying `/sta
 
 ## When the other boards and their data cables arrive
 
-1. Connect one board at a time. Run `ls /dev/cu.usb*` before/after plugging in to find its port. Existing serial ports can change names.
-2. Initial flash only: `./flash_initial.sh edge1 /dev/cu.usbserial-...` then, with the next board connected, `./flash_initial.sh edge2 /dev/cu.usbserial-...`. The script checks the chip and its 4 MB flash before writing; respond `YES` only for the board you mean to flash. Boards with another flash size or chip need review first.
+1. Edge2 v1 was already USB-flashed to the newly purchased board. Do not reflash it unless recovery is necessary. Connect remaining unflashed boards one at a time. Run `ls /dev/cu.usb*` before/after plugging in to find their port. Existing serial ports can change names.
+2. Teammate's Micro-USB board still needs an initial flash: `./flash_initial.sh edge1 /dev/cu.usbserial-...`. The script checks the chip and its 4 MB flash before writing; respond `YES` only for the board you mean to flash. Boards with another flash size or chip need review first.
 3. Supply power to all three boards. Wait about 10 seconds, join the Mac to `OTA-CLASS-DEMO`, then run `curl --noproxy '*' http://192.168.4.1/status` and expect nonzero IP addresses for edge1 and edge2. If they're 0.0.0.0 the edges aren't connected/registered; don't try firmware forwarding yet.
 4. Forward each v2 image through the controller, separately, from the Mac:
 
