@@ -2,6 +2,7 @@
 build/
 secure_firmware/
 rollback_firmware/
+test_logs/
 *.manifest
 *.elf
 *.map

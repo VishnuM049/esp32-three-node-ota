@@ -20,6 +20,10 @@ For a **separate** full-image hash-rejection test on both edges, `./build_edge_n
 
 A lost Wi-Fi connection, HTTP error or missing status is NOT a pass; do not automatically retry. The two probes have been syntax-checked but not run on hardware.
 
+## Single-command offline v5 test (Mac stays charging)
+
+If talking to the assistant requires the Mac's current internet Wi-Fi, **do not simply join the demo AP and wait for instructions**. Instead, once you are at the Mac, run `./host_signing/offline_controller_v5.sh 'YOUR_USUAL_WIFI_NAME'` from your normal network. Give only the SSID of a network already saved on this Mac, **not its password**. The script preflights that name, temporarily joins the demo AP, sends signed controller v5 **once** only if the controller reports v4, confirms `role=0 version=5 ota=valid` after reboot, and attempts to restore your saved Wi-Fi on exit. Its output is saved in the ignored `test_logs/` directory. **Internet will be unavailable briefly. Auto-reconnection is best effort, not guaranteed; be ready to choose your usual Wi-Fi manually if it fails.** If the result is missing/ambiguous, do not retry or send v6. This script has passed shell syntax and failure-preflight checks, but it has NOT yet been run on the live network.
+
 ## First-boot rollback on controller only
 
 The installed Arduino-ESP32 core 3.3.12 was checked locally: `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=1`. But Arduino's weak `verifyOta()` default unconditionally approves an OTA image during early initialization. On this development branch we override `verifyRollbackLater()` to defer approval until `setup()` can check libsodium and live controller AP / edge Wi-Fi connection. On first boot of a newly OTA-installed image, a passing check calls `esp_ota_mark_app_valid_cancel_rollback()`, while a failing check calls `esp_ota_mark_app_invalid_rollback_and_reboot()`. A compile-time `FORCE_SELF_TEST_FAILURE=1` is for the deliberately failing v6 test image **only**; never USB-flash v6.
