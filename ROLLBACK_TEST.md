@@ -10,7 +10,15 @@ Once all 3 boards are powered, join `OTA-CLASS-DEMO` and run:
 python3 host_signing/probe_edge_rejections.py
 ```
 
-The script reads both registered edge addresses from the controller, requires both to report v4, and sends only HTTP *headers* for unsigned, wrong-role, replayed v4, and forged-version manifests directly to each edge. It expects HTTP 403 for every case and confirms each remains v4. It **does not** test full-image hash rejection on the edges (that was hardware-tested on the controller). Do not claim this succeeded until you have the output.
+The first script reads both registered edge addresses from the controller, requires both to report v4, and sends only HTTP *headers* for unsigned, wrong-role, replayed v4, and forged-version manifests directly to each edge. It expects HTTP 403 for every case and confirms each remains v4. Do not claim this succeeded until you have the output.
+
+For a **separate** full-image hash-rejection test on both edges, `./build_edge_negative.sh` has already compiled and signed valid v5 images; the probe authenticates each original image locally, flips a byte of the body **in memory**, and sends ONLY the tampered copy with its unmodified valid signed manifest. Each edge should reject with HTTP 403 and remain v4. Never send the original uncorrupted v5 image as part of this negative test. After the header probe passes, run the following **once** while all boards are on and the Mac is still on the demo Wi-Fi:
+
+```bash
+./.venv/bin/python host_signing/probe_edge_tampered.py
+```
+
+A lost Wi-Fi connection, HTTP error or missing status is NOT a pass; do not automatically retry. The two probes have been syntax-checked but not run on hardware.
 
 ## First-boot rollback on controller only
 
