@@ -1,6 +1,6 @@
 # Three-ESP32 OTA transport prototype — NOT YET SECURE OTA
 
-**Status (today):** All six binaries compile for the classic ESP32 with 4 MB flash. Controller v1 was flashed to one working board, and its boot message plus AP address were seen on USB serial. Neither a Wi-Fi OTA update nor controller-to-edge transfer has been tested yet. The two remaining boards must be connected and initially flashed before a three-device result can be claimed.
+**Status:** All six prototype binaries compile for the classic ESP32 with 4 MB flash. Controller v1 was flashed to one working board; controller v2 was then sent over Wi-Fi to `/update`, and `GET /status` independently confirmed `role=0 version=2` after reboot. The Mac automatically left `OTA-CLASS-DEMO` during the reboot, so the original test script falsely reported that confirmation failed; that script has been fixed. **Controller-to-edge forwarding has not been tested**. The remaining boards must be connected and initially flashed before a three-device result can be claimed.
 
 **Security warning:** This version has **no developer signature verification, no downgrade protection, no post-boot rollback confirmation, and no Noise-style authenticated encryption**. A Wi-Fi password is not a substitute. Anyone on the demo Wi-Fi can upload firmware. Use only for short, supervised testing, not as a security demonstration or production device. All firmware images should remain under 1.25 MB using the Arduino ESP32 default 4 MB partition layout (`ota_0`, `ota_1`).
 
@@ -25,14 +25,11 @@ cd ~/iot_project_abstracts/ota_prototype
 
 Ready-to-use `firmware/{controller,edge1,edge2}_v{1,2}/ota_prototype.ino.bin` files are generated alongside bootloader/partition artifacts. The program and roles are compiled, but **only controller v1 has been flashed or boot-tested**.
 
-## One-board test to run next
+## One-board OTA result / repeat test
 
-1. Keep the working board plugged into the Mac for power. Controller v1 has already been installed via USB; do not upload v2 via the Arduino IDE.
-2. Connect the Mac's Wi-Fi to `OTA-CLASS-DEMO` (password above). This is the board's own network; it won't provide internet.
-3. In a terminal run `~/iot_project_abstracts/ota_prototype/test_controller_ota.sh`. It first fetches `/status` (should be role=0 version=1), POSTs controller v2 over Wi-Fi, waits for reboot, and fetches `/status` again (should be version=2). A failed test means **do not assume OTA works**; collect the script output and debug.
-4. Rejoin your regular Wi-Fi after testing. The board can stay plugged into USB; it carries only power/serial during the OTA test.
+The working board is currently on **controller v2**, confirmed by querying `/status` after its Wi-Fi update and reboot. USB stayed attached solely for power; firmware was sent over Wi-Fi. The laptop may automatically switch back to its normal internet network when the ESP32 reboots. Rejoin `OTA-CLASS-DEMO` and query `curl --noproxy '*' --max-time 5 http://192.168.4.1/status` before diagnosing a failure.
 
-If this test passes once, rerunning it will show v2 -> v2 (not an actual version change). To repeat, bootstrap controller v1 again via USB using `./flash_initial.sh controller /dev/cu.usbserial-...` (this is a lab test only).
+`./test_controller_ota.sh` now detects v2 and exits without uploading it again. To repeat a real v1-to-v2 OTA, bootstrap controller v1 via USB using `./flash_initial.sh controller /dev/cu.usbserial-...`, rejoin `OTA-CLASS-DEMO`, then run `./test_controller_ota.sh`. USB in the test supplies only power/serial after the one-time v1 bootstrap. Rejoin your normal Wi-Fi afterward.
 
 ## When the other boards and their data cables arrive
 
