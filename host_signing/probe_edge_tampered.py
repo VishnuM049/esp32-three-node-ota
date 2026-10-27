@@ -56,8 +56,8 @@ def test_one(role: int, ip: str):
 def main():
     controller = status("192.168.4.1", 80)
     print("Controller:", controller, flush=True)
-    if "role=0 version=4" not in controller:
-        raise RuntimeError("Controller must be secure v4; refusing test")
+    if "role=0 version=5" not in controller or "ota=valid" not in controller:
+        raise RuntimeError("Controller must be confirmed secure v5; refusing test")
     for role in (1, 2):
         match = re.search(rf"edge{role}=([0-9.]+)", controller)
         if not match or match.group(1) == "0.0.0.0":

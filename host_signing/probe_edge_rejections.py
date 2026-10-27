@@ -43,8 +43,8 @@ def reject(host, length, hex_manifest, reason):
 def main():
     controller = status(CONTROLLER, 80)
     print("Controller:", controller)
-    if "role=0 version=4" not in controller:
-        raise RuntimeError("Not secure controller v4; refusing test")
+    if "role=0 version=5" not in controller or "ota=valid" not in controller:
+        raise RuntimeError("Controller must be confirmed secure v5; refusing test")
     for role in (1, 2):
         match = re.search(rf"edge{role}=([0-9.]+)", controller)
         if not match or match.group(1) == "0.0.0.0":
