@@ -28,3 +28,8 @@ clang -O2 -DUSE_LIBSODIUM=1 -Dnoise_init=noisec_init \
   "$UPSTREAM/tests/vector/json-reader.c" -L/opt/homebrew/lib -lsodium \
   -o "$OUT/test-vector"
 "$OUT/test-vector" "$OUT/noise-c-basic.txt" "$OUT/cacophony.txt"
+clang -O2 -DUSE_LIBSODIUM=1 -Dnoise_init=noisec_init \
+  -I"$PORT" -I"$PORT/protocol" -I/opt/homebrew/include \
+  "${mapfile[@]}" "$ROOT/host_signing/noise_kk_negative.c" \
+  -L/opt/homebrew/lib -lsodium -o "$OUT/test-kk-negative"
+"$OUT/test-kk-negative"
