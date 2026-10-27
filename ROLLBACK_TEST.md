@@ -1,24 +1,18 @@
-# Controller first-boot rollback: hardware verified; edge negative tests pending
+# Controller first-boot rollback and both-edge rejection tests: hardware verified
 
 Current physical state: **controller runs secure v5 with `ota=valid` after a deliberately failing v6 OTA was rolled back; both edges run secure v4** (see SECURE_OTA.md). The controller was read-only identified as classic ESP32, 4 MB flash, MAC `20:50:0d:1b:64:d8` on `/dev/cu.usbserial-110` (port may change). The signed controller v4 image and manifest are retained under ignored `secure_firmware/controller_v4/` and passed local signature verification. A success-path first-boot confirmation and a failure-path rollback are both hardware-tested **on the controller only**; neither power-loss recovery nor edge-device rollback has been tested.
 
-## Edge rejection tests (no flashing)
+## Edge rejection tests — COMPLETED; DO NOT RERUN
 
-The controller now runs secure v5 with `ota=valid`, and both edges must be powered and still on v4. **If your Mac needs its normal Wi-Fi for internet/assistant access, do not manually join the demo AP.** Instead run `./host_signing/offline_edge_tests.sh 'YOUR_USUAL_WIFI_NAME'` locally from your normal Wi-Fi; it runs both probes in order, saves a log in ignored `test_logs/`, and attempts to restore internet (best effort; manual reconnection may be necessary). Do not rerun automatically if a probe or connection fails. Alternatively, while already joined to `OTA-CLASS-DEMO`, run the probes manually:
+On 2026-10-28, `./host_signing/offline_edge_tests.sh 'AUMobile-WiFi_AR'` ran once while all three boards were powered. Controller v5 reported `ota=valid last_invalid=app1` and registered edge1 at `192.168.4.4` and edge2 at `192.168.4.3` (IPs can change). The script directly queried **each edge** for `role=1 version=4` and `role=2 version=4`, respectively, then sent these independent direct-edge negatives:
 
-```bash
-python3 host_signing/probe_edge_rejections.py
-```
+- Missing/unsigned manifest: rejected on both.
+- Valid signature for wrong role: rejected on both.
+- Valid signed v4 replay at v4: rejected on both.
+- Modified signed version with invalid developer signature: rejected on both.
+- An entire ~1 MB v5 image was first signed and verified locally, then altered **in memory**; its unchanged valid signed manifest and **only the tampered body** were sent to each edge. Both rejected it on full SHA-256 mismatch.
 
-The first script reads both registered edge addresses from the controller, requires both to report v4, and sends only HTTP *headers* for unsigned, wrong-role, replayed v4, and forged-version manifests directly to each edge. It expects HTTP 403 for every case and confirms each remains v4. Do not claim this succeeded until you have the output.
-
-For a **separate** full-image hash-rejection test on both edges, `./build_edge_negative.sh` has already compiled and signed valid v5 images; the probe authenticates each original image locally, flips a byte of the body **in memory**, and sends ONLY the tampered copy with its unmodified valid signed manifest. Each edge should reject with HTTP 403 and remain v4. Never send the original uncorrupted v5 image as part of this negative test. After the header probe passes, run the following **once** while all boards are on and the Mac is still on the demo Wi-Fi:
-
-```bash
-./.venv/bin/python host_signing/probe_edge_tampered.py
-```
-
-A lost Wi-Fi connection, HTTP error or missing status is NOT a pass; do not automatically retry. The two probes have been syntax-checked but not run on hardware.
+After every edge's tests, a direct `/status` still returned v4. The Mac restored its usual internet Wi-Fi. Ignored local log: `test_logs/edge-negative-20261028-043446.log`. This validates both receivers' negative paths. It does **not** test first-boot rollback on the edges, since neither accepted an update. No valid v5 image was transmitted. **Do not rerun these negative probes or upgrade the edges merely to repeat this result.**
 
 ## Single-command offline v5 test (Mac stays charging)
 
