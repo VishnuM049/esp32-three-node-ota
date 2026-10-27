@@ -3,6 +3,7 @@ build/
 secure_firmware/
 rollback_firmware/
 test_logs/
+noise_experiments/
 *.manifest
 *.elf
 *.map
