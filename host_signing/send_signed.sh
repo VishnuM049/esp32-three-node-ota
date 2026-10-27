@@ -14,6 +14,7 @@ image="$ROOT/secure_firmware/${1}_v4/ota_prototype.ino.bin"
 manifest="${image}.manifest"
 [[ -f "$image" && -f "$manifest" ]] || { echo 'Missing signed v4 image or manifest.' >&2; exit 1; }
 "$ROOT/.venv/bin/python" "$ROOT/host_signing/manifest.py" verify \
+  --public "$ROOT/private_keys/demo_public.bin" \
   --image "$image" --manifest "$manifest" --role "$role" --current-version 3
 hex=$(xxd -p -c 256 "$manifest" | tr -d '\n')
 [[ ${#hex} == 218 ]] || { echo 'Invalid manifest hex length' >&2; exit 1; }
