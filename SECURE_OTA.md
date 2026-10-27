@@ -1,5 +1,7 @@
 # Signed OTA test report — three ESP32s (application-level security)
 
+This records the original v3→v4 demonstration. On the later `feature/rollback-and-edge-tests` branch, the controller subsequently updated to **v5** and confirmed first-boot verification (`ota=valid`); both edges still run **v4**. See `ROLLBACK_TEST.md`. Failure-driven rollback and Noise-style encryption have not yet been demonstrated.
+
 Public repo contains ONLY `TrustedPublicKey.h` (public verification key), not the private Ed25519 key. This branch is a separate security implementation; `main` preserves the previously demonstrated unsigned three-node v1/v2 transport. **Do not use old `test_controller_ota.sh`, `firmware/*_v2` or `flash_initial.sh` for the security demo.**
 
 ## Implemented (software; hardware testing still required)

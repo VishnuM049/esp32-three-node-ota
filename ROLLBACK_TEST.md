@@ -1,6 +1,6 @@
 # Next experiments (NOT yet demonstrated on hardware)
 
-Current physical state: controller, edge1 and edge2 all run secure signed-OTA v4 (see SECURE_OTA.md). The connected controller was read-only identified as classic ESP32, 4 MB flash, MAC `20:50:0d:1b:64:d8` on `/dev/cu.usbserial-110` (port may change). The signed controller v4 image and manifest are retained under ignored `secure_firmware/controller_v4/` and passed local signature verification. Keep these proven images; the new rollback code on this branch must be tested before making claims.
+Physical state as of the first hardware rollback preparation test: **controller runs secure v5 with `ota=valid`; both edges run secure v4** (see SECURE_OTA.md). The connected controller was read-only identified as classic ESP32, 4 MB flash, MAC `20:50:0d:1b:64:d8` on `/dev/cu.usbserial-110` (port may change). The signed controller v4 image and manifest are retained under ignored `secure_firmware/controller_v4/` and passed local signature verification. First-boot success/confirmation is hardware-tested on the controller; *failure-driven rollback is not yet tested*.
 
 ## Edge rejection tests (no flashing)
 
@@ -22,7 +22,17 @@ A lost Wi-Fi connection, HTTP error or missing status is NOT a pass; do not auto
 
 ## Single-command offline v5 test (Mac stays charging)
 
-If talking to the assistant requires the Mac's current internet Wi-Fi, **do not simply join the demo AP and wait for instructions**. Instead, once you are at the Mac, run `./host_signing/offline_controller_v5.sh 'YOUR_USUAL_WIFI_NAME'` from your normal network. Give only the SSID of a network already saved on this Mac, **not its password**. The script preflights that name, temporarily joins the demo AP, sends signed controller v5 **once** only if the controller reports v4, confirms `role=0 version=5 ota=valid` after reboot, and attempts to restore your saved Wi-Fi on exit. Its output is saved in the ignored `test_logs/` directory. **Internet will be unavailable briefly. Auto-reconnection is best effort, not guaranteed; be ready to choose your usual Wi-Fi manually if it fails.** If the result is missing/ambiguous, do not retry or send v6. This script has passed shell syntax and failure-preflight checks, but it has NOT yet been run on the live network.
+If talking to the assistant requires the Mac's current internet Wi-Fi, **do not simply join the demo AP and wait for instructions**. Instead, once you are at the Mac, run `./host_signing/offline_controller_v5.sh 'YOUR_USUAL_WIFI_NAME'` from your normal network. Give only the SSID of a network already saved on this Mac, **not its password**. The script preflights that name, temporarily joins the demo AP, sends signed controller v5 **once** only if the controller reports v4, confirms `role=0 version=5 ota=valid` after reboot, and attempts to restore your saved Wi-Fi on exit. Its output is saved in the ignored `test_logs/` directory. **Internet will be unavailable briefly. Auto-reconnection is best effort, not guaranteed; be ready to choose your usual Wi-Fi manually if it fails.** If the result is missing/ambiguous, do not retry or send v6. This script was run **once on the controller** on 2026-10-28: it confirmed v4 before sending, locally validated the signed v5 image, got `Signed image accepted; rebooting`, then independently queried `role=0 version=5 ... ota=valid last_invalid=none`. The Mac successfully returned to `AUMobile-WiFi_AR`. Local log: ignored `test_logs/controller-v5-20261028-042452.log`.
+
+## Offline controlled rollback test (not yet run)
+
+After the controller v5 result above, the intentionally failing v6 test can run locally without keeping the assistant online. This test **may leave the controller needing USB recovery**. Do not run if you cannot recover by USB. From your normal Wi-Fi with the controller on USB power, run:
+
+```bash
+./host_signing/offline_controller_v6.sh 'YOUR_USUAL_WIFI_NAME'
+```
+
+The script requires you to type `ROLLBACK` **before** changing networks. It requires v5 with `ota=valid`, checks the v6 developer signature, sends v6 **once** and never retries. After reboot it requires `role=0 version=5 ota=valid` and a non-`none` `last_invalid` slot before calling it a pass; then it tries to restore your usual internet Wi-Fi and saves a log under ignored `test_logs/`. Recovery of the Mac's network is best effort. It has passed shell syntax and failure-preflight checks, but failure-driven rollback has **not** yet been observed on hardware.
 
 ## First-boot rollback on controller only
 
@@ -30,19 +40,10 @@ The installed Arduino-ESP32 core 3.3.12 was checked locally: `CONFIG_BOOTLOADER_
 
 The project build script `./build_rollback.sh` already compiled and signed two 4MB-ESP32 images (under ignored `rollback_firmware/`):
 
-- controller v5: healthy self-test; should install OTA from v4 and confirm itself.
+- controller v5: healthy self-test; installed OTA from v4 and confirmed itself on hardware (`ota=valid`).
 - controller v6: signed and valid transfer, but deliberately fails first-boot self-test; should revert to v5. The v6 build is a controlled *test*, not a release.
 
-Images fit the 1.25 MB OTA slots. A compiler symbol check of v5 shows `verifyRollbackLater` as a **strong** definition and the Arduino default `verifyOta` as weak. This is necessary but not proof of runtime rollback. Before testing, back up current proven v4 binaries and ensure USB recovery is available. Keep controller on USB power throughout, join `OTA-CLASS-DEMO` with the Mac, then run:
-
-```bash
-./host_signing/send_rollback_test.sh 5
-# after reboot query: curl --noproxy '*' --max-time 5 http://192.168.4.1/status
-# MUST report role=0 version=5 AND ota=valid before proceeding
-./host_signing/send_rollback_test.sh 6
-# enter ROLLBACK confirmation; after reboot query /status again
-# EXPECT role=0 version=5 ota=valid (NOT 6); last_invalid should identify rejected OTA slot
-```
+Images fit the 1.25 MB OTA slots. A compiler symbol check of v5 shows `verifyRollbackLater` as a **strong** definition and the Arduino default `verifyOta` as weak. First-boot confirmation succeeded on hardware, but this is not proof of failure-driven rollback. **Do not rerun v5**: it is already installed and reports `role=0 version=5 ota=valid`. Keep the proven v4 recovery binaries and USB recovery available. For v6, prefer the offline script above; the manual alternative while joined to the demo AP is `./host_signing/send_rollback_test.sh 6`, then rejoin the demo AP if needed and independently check `/status` for `role=0 version=5 ota=valid` and a non-`none` `last_invalid` slot.
 
 The new firmware's `/status` includes `ota=` (state of its running image) and `last_invalid=` (most recent rejected slot) as diagnostic evidence; the older v4 does not expose these fields. The v6 script refuses to run unless v5 reports `ota=valid`. Run each **once**; if the Mac switches back to its usual Wi-Fi during reboot, rejoin the ESP32 AP rather than re-sending an image. If v5 does not boot, STOP and recover via USB; do not send v6. A missing AP or no reply after v6 is NOT proof of rollback. The preceding v4 slot may be replaced during the v5 install; recovery uses USB if the firmware/bootloader fails.
 
