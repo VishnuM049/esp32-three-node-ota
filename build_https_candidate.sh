@@ -1,15 +1,17 @@
 #!/bin/bash
-# Compile-only separate controller v10 experiment. NEVER flashes or signs.
+# USB v10 + key-free OTA v11 candidates. NEVER flashes or uploads. v11 is signed locally.
 set -euo pipefail
 umask 077
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 mode="${1:---ota}"
-[[ $# -le 1 && ( "$mode" == --ota || "$mode" == --usb ) ]] || { echo 'Usage: build_https_candidate.sh [--ota|--usb]' >&2; exit 2; }
+[[ $# -le 1 && ( "$mode" == --ota || "$mode" == --usb || "$mode" == --ota-v11 ) ]] || { echo 'Usage: build_https_candidate.sh [--ota|--usb|--ota-v11]' >&2; exit 2; }
 CLI='/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli'
 PORT="$ROOT/noise_experiments/noise_probe/src"
 [[ -f "$PORT/protocol/handshakestate.c" ]] || { echo 'Pinned local Noise-C missing' >&2; exit 1; }
+version=10
 name=https_controller_v10_candidate
 [[ "$mode" == --usb ]] && name=https_controller_v10_usb_private
+if [[ "$mode" == --ota-v11 ]]; then version=11; name=https_controller_v11_candidate; fi
 sketch="$ROOT/noise_experiments/$name"
 out="$ROOT/noise_experiments/${name}_build"
 mkdir -p "$sketch" "$out"
@@ -31,7 +33,7 @@ else
 fi
 "$CLI" --config-file "$HOME/.arduinoIDE/arduino-cli.yaml" compile -b esp32:esp32:esp32 -j 2 \
   --build-property "compiler.c.extra_flags=-DUSE_LIBSODIUM=1 -Dnoise_init=noisec_init -I$sketch/src -I$sketch/src/protocol" \
-  --build-property "compiler.cpp.extra_flags=-DNODE_ROLE=0 -DFW_VERSION=10$extra -Dnoise_init=noisec_init -I$sketch/src" \
+  --build-property "compiler.cpp.extra_flags=-DNODE_ROLE=0 -DFW_VERSION=$version$extra -Dnoise_init=noisec_init -I$sketch/src" \
   --build-path "$out/.arduino-build" --output-dir "$out" "$sketch"
 image="$out/$name.ino.bin"
 ROOT="$ROOT" IMAGE="$image" MODE="$mode" "$ROOT/.venv/bin/python" - <<'PY'
@@ -45,11 +47,18 @@ for role in ('controller', 'edge1', 'edge2'):
     key = (root / 'private_keys/noise' / f'{role}.x25519').read_bytes()
     if len(key) != 32 or key in data: raise SystemExit('STOP: static identity embedded in OTA binary')
 tls_key = root / 'private_keys' / 'host_tls' / 'server.key'
-if mode == '--ota' and tls_key.exists() and tls_key.read_bytes() in data:
+if mode != '--usb' and tls_key.exists() and tls_key.read_bytes() in data:
     raise SystemExit('STOP: actual TLS private key embedded in OTA binary')
 if mode == '--usb' and (not tls_key.exists() or tls_key.read_bytes() not in data):
     raise SystemExit('STOP: USB-only image missing expected TLS provisioning key')
 if b'POST image with valid Content-Length required' in data:
     raise SystemExit('STOP: legacy plaintext HTTP update linked in')
-print(f'COMPILE-ONLY {mode} candidate: {len(data)} / {0x140000} bytes; legacy HTTP POST absent.')
+print(f'LOCAL-ONLY {mode} candidate: {len(data)} / {0x140000} bytes; legacy HTTP POST absent.')
 PY
+if [[ "$mode" == --ota-v11 ]]; then
+  "$ROOT/.venv/bin/python" "$ROOT/host_signing/manifest.py" sign \
+    --private "$ROOT/private_keys/demo.pem" --image "$image" --role 0 --version 11
+  "$ROOT/.venv/bin/python" "$ROOT/host_signing/manifest.py" verify \
+    --public "$ROOT/private_keys/demo_public.bin" --image "$image" \
+    --manifest "$image.manifest" --role 0 --current-version 10
+fi
