@@ -42,6 +42,10 @@ static unsigned long lastReconnectAttempt = 0;
 static bool edgeWasConnected = false;
 static const unsigned long RECONNECT_RETRY_MS = 10000;
 static const unsigned long REGISTER_RETRY_MS = 5000;
+// The original 30-second window was exhausted under concurrent status polls
+// during an HTTPS upload. Still require pinned-controller authentication;
+// give a recovering AP up to 90 seconds before rolling back a pending image.
+static const unsigned long FIRST_BOOT_VERIFY_MS = 90000;
 static const uint16_t port = 80; // Laptop-facing HTTP ONLY on controller.
 static const size_t MAX_IMAGE = 0x140000; // default 4MB partition table: 1.25MB OTA slots
 static const unsigned long IDLE_TIMEOUT_MS = 12000;
@@ -481,6 +485,7 @@ void loop() {
     }
     if (connected && noiseReady && millis() - lastRegister >= REGISTER_RETRY_MS) {
       lastRegister = millis();
+      bool authenticated = false;
       WiFiClient registration;
       if (registration.connect(gateway, 8081, 1000) &&
           registration.write((uint8_t)NODE_ROLE) == 1) {
@@ -490,6 +495,7 @@ void loop() {
         if (secure.begin(registration, NODE_ROLE, true) &&
             secure.send(&command, 1) && secure.receive(response, size) &&
             size == 1 && response[0] == 0x02) {
+          authenticated = true;
           // The controller only trusts the fresh authenticated REGISTER record.
           // A first-boot edge is not confirmed until its controller pin works.
           if (pendingEdgeVerification) {
@@ -501,11 +507,14 @@ void loop() {
         }
       }
       registration.stop();
+      if (pendingEdgeVerification && !authenticated)
+        Serial.printf("Pending image: registration retry failed after %lu ms, Wi-Fi state=%d\n",
+                      millis() - edgeVerificationStarted, (int)WiFi.status());
     }
   }
-  if (pendingEdgeVerification && millis() - edgeVerificationStarted > 30000) {
+  if (pendingEdgeVerification && millis() - edgeVerificationStarted > FIRST_BOOT_VERIFY_MS) {
     pendingEdgeVerification = false;
-    Serial.println("No authenticated controller within 30s; reverting OTA image");
+    Serial.println("No authenticated controller within 90s; reverting OTA image");
     esp_err_t err = esp_ota_mark_app_invalid_rollback_and_reboot();
     Serial.printf("ERROR: edge rollback failed: %d (USB recovery may be needed)\n", (int)err);
   }
