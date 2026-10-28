@@ -1,4 +1,6 @@
-# Offline demo and viva guide — three-ESP32 signed + Noise-link OTA
+# HISTORICAL offline guide — v8/v7/v7 signed + Noise milestone
+
+**Today's boards have advanced to controller v11 / edges v9 with HTTPS laptop uploads and automatic edge re-registration demonstrated on the new builds.** For current stage commands and accurate viva scope see [`HTTPS_LIVE_DEMO.md`](HTTPS_LIVE_DEMO.md), [`HOST_LINK_ENCRYPTION_REPORT.md`](HOST_LINK_ENCRYPTION_REPORT.md), and [`HTTPS_RUNTIME_TEST.md`](HTTPS_RUNTIME_TEST.md). **Do not execute the v8/v7 commands below**; this document remains useful for the signed-manifest/Noise architecture and historical failure comparisons.
 
 **Read this on the Mac without internet.** Exact hardware run: `NOISE_RUNTIME_TEST.md`. One-use future image instructions: `LIVE_DEMO.md`. Claim-by-claim submitted abstract audit: `ABSTRACT_CLAIM_REPORT.md`. This guide does **not** authorize reflashing or reusing a spent image.
 

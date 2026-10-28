@@ -16,17 +16,29 @@ GOOD = ("role=0 version=8 noise=1 edge1=192.168.4.2 edge2=192.168.4.3 "
         "edge1_secure=v7_ota2_minheap214024_stack10844_rttms334 "
         "edge2_secure=v7_ota2_minheap213468_stack10844_rttms315 "
         "ota=valid last_invalid=none heap=201956 minheap=183364 stack_margin=9468\n")
+GOOD_TLS = (GOOD.replace('version=8 noise=1', 'version=11 noise=1 tls=1')
+            .replace('edge1_secure=v7_', 'edge1_secure=v9_')
+            .replace('edge2_secure=v7_', 'edge2_secure=v9_'))
 
 
 class BrowserLogTests(unittest.TestCase):
     def test_parse_authenticated_status(self):
         result = parse_status(GOOD)
         self.assertEqual(result['controller']['version'], 8)
+        self.assertFalse(result['controller']['tls'])
         self.assertEqual(result['controller']['ota'], 'valid')
         self.assertEqual(result['edges']['edge1']['version'], 7)
         self.assertEqual(result['edges']['edge2']['ota'], 'valid')
         self.assertEqual(result['edges']['edge2']['rtt_ms'], 315)
         self.assertEqual(result['controller']['stack_margin'], 9468)
+
+    def test_https_status_is_reported_without_claiming_http_status_encryption(self):
+        result = parse_status(GOOD_TLS)
+        self.assertEqual(result['controller']['version'], 11)
+        self.assertTrue(result['controller']['tls'])
+        self.assertTrue(result['controller']['noise'])
+        self.assertEqual(result['edges']['edge1']['version'], 9)
+        self.assertEqual(result['edges']['edge2']['ota'], 'valid')
 
     def test_reject_wrong_or_incomplete_controller(self):
         with self.assertRaises(ValueError):

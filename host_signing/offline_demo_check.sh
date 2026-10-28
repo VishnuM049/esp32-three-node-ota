@@ -3,6 +3,11 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
+if [[ -f HTTPS_RUNTIME_TEST.md ]]; then
+  echo 'HISTORICAL v8/v7 preflight only; boards are now v11/v9/v9.' >&2
+  echo 'Use ./host_signing/offline_https_demo_check.sh for the new one-use demo.' >&2
+  exit 2
+fi
 PY="$ROOT/.venv/bin/python"
 [[ -x "$PY" ]] || { echo 'Missing local Python virtual environment' >&2; exit 1; }
 "$PY" -c 'import cryptography' || { echo 'Local Ed25519 dependency unavailable' >&2; exit 1; }
