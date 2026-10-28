@@ -18,4 +18,4 @@
 3. Failure-driven edge rollback injection and the full live Noise wrong-key/tamper/replay suite. Earlier edge1 v8 first boot **did roll back** after an accepted transfer, but the cause was not isolated and it was not an intentionally injected failure.
 4. Verify encrypted off-Mac recovery of the current TLS secret and v8 controller full flash, and actually test restore on a spare board. Full snapshot is local and Git-ignored, not a substitute for a proven restore.
 
-The user-requested one-shot new presentation images (edge v10/controller v12) are local and **unsent**; use [`HTTPS_LIVE_DEMO.md`](HTTPS_LIVE_DEMO.md) instead of old v8/edge-v7 HTTP senders. Do not run `curl -k` or transmit USB key-bearing images over any network.
+Three future one-use rounds (edge v10/v11/v12 and controller v12/v13/v14) are locally prepared and **unsent**; use [`HTTPS_LIVE_DEMO.md`](HTTPS_LIVE_DEMO.md) instead of old v8/edge-v7 HTTP senders. Do not run `curl -k` or transmit USB key-bearing images over any network.

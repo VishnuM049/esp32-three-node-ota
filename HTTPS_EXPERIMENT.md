@@ -12,7 +12,7 @@
 
 - `./build_https_candidate.sh --usb` generates a **USB-ONLY SECRET-BEARING** controller v10 image; it is **already installed**, and must never be OTA-uploaded, committed or shared. The ignored file `noise_experiments/https_controller_v10_usb_private_build/*.ino.bin` contains the local TLS private key. Do not regenerate or rotate the key.
 - `./build_https_candidate.sh --ota-v11` makes a signed, **already spent** key-free v11 image. The v11 first-boot self-test confirmed TLS startup and valid OTA state. Do not resend v11.
-- Older experiment senders (`https_experiment/send_https_edge.sh` for edge v8, `https_experiment/send_https_controller_v11.sh` for controller v11) have strict version gates and should now refuse on current v11/v9/v9 hardware. The reconnect branch's v9 edge candidates have also been sent and confirmed. Future presentation images must be strictly newer and independently verified before sending.
+- Older experiment senders (`https_experiment/send_https_edge.sh` for edge v8, `https_experiment/send_https_controller_v11.sh` for controller v11) have strict version gates and should now refuse on current v11/v9/v9 hardware. The v9 reconnect images have also been sent and confirmed. For multiple future one-use demonstrations, the **new** guarded `host_signing/send_https_demo_ladder.sh --plan|--send role` selects the next prepared edge v10..12 or controller v12..14 after checking current authenticated/valid fleet status, signature and Mac TLS certificate. All nine images are built and signed locally but untested on hardware until first actual presentation use.
 
 ## Tested vs outstanding
 

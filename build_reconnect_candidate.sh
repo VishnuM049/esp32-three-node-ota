@@ -5,11 +5,12 @@ set -euo pipefail
 umask 077
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 mode="${1:---candidate-v9}"
-[[ $# -le 1 && ( "$mode" == --candidate-v9 || "$mode" == --demo-v10 ) ]] || {
-  echo 'Usage: build_reconnect_candidate.sh [--candidate-v9|--demo-v10]' >&2; exit 2;
+[[ $# -le 1 && ( "$mode" == --candidate-v9 || "$mode" == --demo-v10 ||
+                 "$mode" == --demo-v11 || "$mode" == --demo-v12 ) ]] || {
+  echo 'Usage: build_reconnect_candidate.sh [--candidate-v9|--demo-v10|--demo-v11|--demo-v12]' >&2; exit 2;
 }
 version=9
-[[ "$mode" == --demo-v10 ]] && version=10
+if [[ "$mode" != --candidate-v9 ]]; then version="${mode##*v}"; fi
 CLI='/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli'
 PORT="$ROOT/noise_experiments/noise_probe/src"
 [[ -f "$PORT/protocol/handshakestate.c" &&
@@ -19,7 +20,7 @@ PORT="$ROOT/noise_experiments/noise_probe/src"
 for role in edge1 edge2; do
   [[ "$role" == edge1 ]] && id=1 || id=2
   name="${role}_reconnect_v${version}"
-  [[ "$mode" == --demo-v10 ]] && name="${role}_reconnect_v10_demo"
+  [[ "$mode" != --candidate-v9 ]] && name="${role}_reconnect_v${version}_demo"
   sketch="$ROOT/noise_experiments/$name"
   out="$ROOT/noise_experiments/${name}_build"
   mkdir -p "$sketch" "$out"

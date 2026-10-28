@@ -1,37 +1,53 @@
-# New one-use HTTPS + Noise presentation — prepared, NOT sent
+# Multi-round signed HTTPS + Noise presentation — prepared, NOT sent
 
-**Last independently confirmed physical constellation (2026-10-28):** controller **v11** (`ota=valid noise=1 tls=1`), edge1 **v9** (`ota2`), edge2 **v9** (`ota2`). Both edges authenticated simultaneously after an actual controller v11 HTTPS OTA reboot; two controller-only resets also demonstrated unattended re-registration for both. Mac→controller **firmware uploads** use pinned HTTPS; controller→edge uses pinned Noise KK. **Read-only HTTP `/status` is plaintext**. There is no end-to-end secrecy from a malicious controller. Full results, including failed edge1 v8 first-boot confirmation and later successful v9, in `HTTPS_RUNTIME_TEST.md`.
+**Last independently verified physical state:** controller **v11** (`ota=valid noise=1 tls=1`); edge1 and edge2 **v9** (`ota2=valid`, authenticated). A user-run controller power-off/on while both edges remained powered returned this same healthy three-node status. Firmware upload Mac→controller uses **certificate-verified HTTPS**; controller→edge uses **pinned Noise KK**. Read-only `/status` remains plaintext HTTP. See [`HTTPS_RUNTIME_TEST.md`](HTTPS_RUNTIME_TEST.md) for exact successes, the earlier failed v8 edge first boot, and gaps.
 
-**New, signed but unsent local artifacts:** edge1 v10, edge2 v10 (`noise_experiments/edge{1,2}_reconnect_v10_demo_build/*.ino.bin` + `.manifest`); optional controller v12 (`noise_experiments/https_controller_v12_demo_build/*.ino.bin` + `.manifest`). All built for this Mac, role-specific, verified, key-free and <=1,310,720-byte OTA slot. They are **not in Git**. No version may be replayed after installation; do not rehearse with these images.
+## Nine local, role-specific, one-use images
 
-## Before presenting (offline)
+| Presentation round | Edge1 | Edge2 | Optional controller update **last** |
+|---|---|---|---|
+| 1 | v9→**v10** | v9→**v10** | v11→**v12** |
+| 2 | v10→**v11** | v10→**v11** | v12→**v13** |
+| 3 | v11→**v12** | v11→**v12** | v13→**v14** |
 
-1. On this **same Mac**, run `./host_signing/offline_https_demo_check.sh`. It checks the three local signed images/manifest pairs, their slot fit and private-byte absence, certificate/key match, local tests and commands. It sends **no** image and does **not** contact boards or switch Wi-Fi.
-2. Supply stable USB power to **controller and both edges**. Allow 20–30 seconds. Join `OTA-CLASS-DEMO` (password `demo-ota-1234`) and independently check:
-   ```sh
-   curl --noproxy '*' --max-time 25 http://192.168.4.1/status
-   ```
-   One response **must** contain `role=0 version=11 noise=1 tls=1 ... ota=valid`, `edge1_secure=v9_ota2_...`, and `edge2_secure=v9_ota2_...`. AP connection has no internet; that is expected. If missing, **STOP**, inspect board power/registration; do not send anything to repair registration.
-3. Optionally open `http://127.0.0.1:8765/` on the Mac with `python3 web_log/server.py`; this page is read-only. For the highest first-boot reliability, **stop its status poller during the one-shot edge update**, then restart it afterward. The sender records started/accepted/confirmed/ambiguous events to a local file even when the page server is stopped. The earlier experimental v8 first-boot attempt failed under concurrent status polling; its cause was not isolated, so don't claim the page is harmless under all timing loads.
+All nine `.bin` + 109-byte `.manifest` pairs are **locally compiled and signed but not uploaded**. They live under ignored `noise_experiments/`, not on GitHub. They fit their 1,310,720-byte OTA slots and are scanned for all known provisioned Noise/TLS private keys. These versions may be sent to their **specific role once, in increasing order**. Skipping a future version makes it unusable on that board without intentional recovery; never replay an installed version. A version-only rebuild shows signed OTA progression, **not a new application feature**. You may stagger edge1 and edge2 on separate occasions. The controller update is optional and only permitted after **both** edges reach the round's target, to avoid interrupting a demonstration with an AP reboot.
 
-## Stage sequence, no blind retries
+## Offline preparation (does NOT consume an image)
 
 ```sh
 cd ~/iot_project_abstracts/ota_prototype
-./host_signing/send_https_demo_next.sh edge1      # v9 -> v10; one use
-# Check edge1_secure=v10_ota2_ in authenticated controller status.
-./host_signing/send_https_demo_next.sh edge2      # v9 -> v10; one use
-# Check both edges v10_ota2, controller v11 valid.
+./host_signing/offline_https_demo_check.sh
 ```
 
-The sender checks Mac AP IP, public-key signature, role, strictly newer signed version, image size, raw private-key absence, healthy baseline status **for both edges**, and a verified controller HTTPS handshake (`--cacert`, never `-k`). It uploads **exactly once**, waits quietly for edge first-boot registration, then queries authenticated status. If response/confirmation is ambiguous, **STOP** and inspect status/serial; do not automatically resend. `ota1` is pending and is **not** a successful new boot. `ota2` is confirmed/valid.
+This checks all nine local image/manifest signatures, roles/versions, complete image hashes, partition fit, absence of known private-key bytes, TLS certificate/key pair, Git ignore rules and local tests. It **does not** query or alter boards, change Wi-Fi, flash, or send OTA. It cannot determine whether a signed image has since been used: only real authenticated status can do that.
 
-**Optional last step:** after **both** edges report `v10_ota2_` and controller remains v11 valid, run `./host_signing/send_https_demo_next.sh controller` for **v11→v12** over pinned HTTPS. The controller will reboot its AP; the script may be unable to re-query if the Mac auto-roams. Rejoin the demo AP as needed and independently confirm `role=0 version=12 noise=1 tls=1 ota=valid` and both authenticated v10 edges. No firmware resend. Stop after the two edge updates for the lower-risk presentation.
+Before each actual update, supply stable power to all three ESP32s, power controller first, allow 30–60 seconds, join `OTA-CLASS-DEMO` (`demo-ota-1234`) and check once with a sufficiently generous timeout:
 
-**After demo:** rejoin the Mac's normal Wi-Fi (previously `AUMobile-WiFi_AR`). The sender and local browser log do **not** change Wi-Fi automatically. Keep the Mac plugged in. If any edge truly loses power, software reconnect cannot operate until it is powered again.
+```sh
+curl --noproxy '*' --connect-timeout 4 --max-time 35 http://192.168.4.1/status
+```
 
-## Accurate talking points
+Initially require **controller v11 valid** and both edges **v9 `ota2` authenticated** in that same response. Do not mistake a five-second `/status` timeout for proof of firmware failure: that endpoint queries both Noise peers synchronously and replies only afterward. If 35 seconds still fails, **STOP** instead of repeatedly hammering it; diagnose separately. Read-only `/status` does not prove TLS certificate verification—the sender does that before any upload.
 
-> "The Mac verifies the controller's certificate and uploads a developer-signed image over HTTPS on the local demo AP. The controller decrypts it and relays the unchanged signed image over its pinned Noise KK channel to the chosen edge. The edge independently checks role, version, signature, length and full hash before boot. Its confirmed OTA state and version return over Noise. Both edges re-registered without manual power cycles in the tested controller-reboot runs. The read-only status page remains HTTP, a previous v8 edge first boot did roll back, no packet capture or physical key-at-rest protection is claimed, and the two secure hops are not end-to-end secrecy against a malicious controller."
+## For each presentation step
 
-**Do not use the older `LIVE_DEMO.md` or `send_noise_demo_next.sh`:** they gate on controller v8/edge v7 and plaintext Mac upload and will correctly refuse this v11/v9/v9 setup. Never send key-bearing USB bootstrap images over either HTTP or HTTPS; keep signed OTA artifacts key-free. The ignored controller v8 full-flash snapshot is an unencrypted local, private, untested-restore fallback—not an off-site verified backup.
+From this repository **while the Mac is on the demo AP**:
+
+```sh
+./host_signing/send_https_demo_ladder.sh --plan edge1   # read-only: show the next valid image
+./host_signing/send_https_demo_ladder.sh --send edge1   # asks you to type SEND edge1 v10 (first round)
+# Wait for edge1_secure=v10_ota2_ confirmed. Edge2 and controller unchanged.
+./host_signing/send_https_demo_ladder.sh --send edge2   # separately, now or later
+# Optional LAST, only after both edge v10 valid:
+./host_signing/send_https_demo_ladder.sh --send controller  # v11->v12; AP reboots
+```
+
+The same `--plan/--send` commands select **the next role-specific version** in later rounds from current status; they do not blindly select a hard-coded filename. If both edges are v11 and controller v12, `--send controller` selects v13; if only edge1 is v11, it refuses the controller round until edge2 catches up. `--plan` verifies local artifacts and the controller's certificate but **does not POST firmware**. `--send` checks both authenticated/valid edges, current role/version, controller TLS/valid state, public-key signature and full image hash, known private-key absence and certificate verification; asks for an explicit typed confirmation; uploads **exactly once** over HTTPS. The destination independently checks before activation. The edge gets a **quiet first-boot registration window** before authenticated `ota2` polling. For highest reliability, leave `python3 web_log/server.py` **stopped while an edge is pending first-boot verification**; the sender still records local events, which the read-only page can show afterward at `http://127.0.0.1:8765/`.
+
+**`ota1` is pending, not successful.** `ota2` on edges or `ota=valid` on controller is confirmed boot. Controller HTTPS uploads reboot its AP; the Mac may roam to its normal network. Rejoin the AP and GET `/status` before doing anything else. A curl timeout or Wi-Fi roam after POST is an **ambiguous outcome**—never automatically retry. Neither sender nor browser log changes Mac Wi-Fi. Restore normal Wi-Fi after the demonstration.
+
+## Honest scope and recovery
+
+The controller sees plaintext between TLS termination and Noise relay: **two protected network hops, not laptop→edge end-to-end secrecy from a malicious controller**. `/status` is plaintext/read-only; a local browser event log is not a tamper-proof security audit. The previously observed edge1 v8 pending boot rolled back; later v9 and controller v11 signed OTAs succeeded, with v9 edges automatically rejoining after two controller resets, a controller OTA reboot, and one user-performed controller power-off/on. That is bounded evidence, **not a guarantee** for every outage. Packet capture, deliberate edge failure-rollback injection, physical key-extraction resistance and full live Noise attack negatives remain untested. A locally verified controller v8 flash snapshot is Git-ignored but not a tested restoration. Keep Mac signing, Noise and TLS private keys out of Git and never put USB-bootstrap secrets in network OTA images.
+
+**Do not follow the older `LIVE_DEMO.md` or resend obsolete edge v8/controller v9 images.** Before presenting, ensure your Mac has the ignored private keys and all nine local signed artifacts; a GitHub clone alone does not contain them.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Read-only/offline: validates future one-use controller12/edge10 artifacts. NO boards touched.
+# Read-only/offline: validates THREE rounds (edge10..12, controller12..14). NO boards touched.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -23,20 +23,24 @@ openssl x509 -in private_keys/host_tls/server.crt -noout -checkip 192.168.4.1 | 
 }
 for role in edge1 edge2 controller; do
   case "$role" in
-    edge1) id=1; current=9; next=10; name=edge1_reconnect_v10_demo;;
-    edge2) id=2; current=9; next=10; name=edge2_reconnect_v10_demo;;
-    controller) id=0; current=11; next=12; name=https_controller_v12_demo;;
+    edge1) id=1; versions=(10 11 12);;
+    edge2) id=2; versions=(10 11 12);;
+    controller) id=0; versions=(12 13 14);;
   esac
-  image="noise_experiments/${name}_build/${name}.ino.bin"
-  [[ -s "$image" && -s "$image.manifest" ]] || {
-    echo "Missing local signed $role v$next demo image/manifest; NO upload" >&2; exit 1;
-  }
-  for artifact in "$image" "$image.manifest"; do
-    git check-ignore -q "$artifact" || { echo "STOP: candidate no longer ignored: $artifact" >&2; exit 1; }
-  done
-  "$PY" host_signing/manifest.py verify --public private_keys/demo_public.bin \
-    --image "$image" --manifest "$image.manifest" --role "$id" --current-version "$current"
-  "$PY" - "$image" <<'PY'
+  for next in "${versions[@]}"; do
+    current=$((next - 1))
+    if [[ "$role" == controller ]]; then name="https_controller_v${next}_demo"
+    else name="${role}_reconnect_v${next}_demo"; fi
+    image="noise_experiments/${name}_build/${name}.ino.bin"
+    [[ -s "$image" && -s "$image.manifest" ]] || {
+      echo "Missing local signed $role v$next demo image/manifest; NO upload" >&2; exit 1;
+    }
+    for artifact in "$image" "$image.manifest"; do
+      git check-ignore -q "$artifact" || { echo "STOP: candidate no longer ignored: $artifact" >&2; exit 1; }
+    done
+    "$PY" host_signing/manifest.py verify --public private_keys/demo_public.bin \
+      --image "$image" --manifest "$image.manifest" --role "$id" --current-version "$current"
+    "$PY" - "$image" <<'PY'
 from pathlib import Path
 import sys
 image = Path(sys.argv[1]).read_bytes()
@@ -46,7 +50,8 @@ secrets=[Path('private_keys/noise',f'{role}.x25519').read_bytes()
 secrets.append(Path('private_keys/host_tls/server.key').read_bytes())
 assert all(s not in image for s in secrets), 'STOP: private identity in OTA binary'
 PY
-  echo "LOCALLY READY / UNSENT: $role v$current -> v$next. Does NOT prove current board state."
+    echo "LOCAL ARTIFACT: $role v$current -> v$next (not proof of unused version or live board state)."
+  done
 done
 PYTHONPATH=host_signing "$PY" -m unittest discover -s host_signing -q
 python3 -m unittest discover -s web_log -p 'test_*.py' -q
