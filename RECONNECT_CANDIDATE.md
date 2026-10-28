@@ -1,0 +1,19 @@
+# Edge auto-rejoin: candidate implementation and hardware results
+
+**Source branch:** `feature/reconnect-candidate`. Exact three-board HTTPS/Noise test record: [`HTTPS_RUNTIME_TEST.md`](HTTPS_RUNTIME_TEST.md) on `feature/https-host-experiment` / integrated release. Installed boards last independently verified: controller **v11 valid**, both edges **v9 valid**, each authenticated. This candidate was hardware-tested; it is not a general availability guarantee. Physically unpowered edges cannot rejoin via software.
+
+Earlier v7 edge firmware called `WiFi.reconnect()` about every 500 ms while disconnected and remained unregistered after controller reboots, requiring manual edge power cycles. A physical power loss also remained plausible in the original run, so that older failure's single root cause was never isolated.
+
+The v9 edge candidates:
+
+- Enable Arduino Wi-Fi auto-reconnect and space explicit reconnect nudges by **at least 10 seconds**. A diagnostic ESP Wi-Fi `sta is connecting` warning still occurred once during a nudge, but the edge eventually re-associated. An event-driven-only future refinement may be cleaner.
+- Immediately trigger a new **authenticated Noise REGISTER** on Wi-Fi re-association and continue normal retries every five seconds while connected. IP/MAC alone never authorize edge registration.
+- Require authenticated controller registration before first-boot OTA confirmation. Extend the bounded pending window from 30 to **90 seconds**; if the pinned controller is not authenticated, the image should roll back. This was not tested by deliberately forcing a v9 failure.
+
+`build_reconnect_candidate.sh` builds, locally signs, verifies and scans actual images for key bytes. Default `--candidate-v9` builds the **already spent** edge1/edge2 v9 artifacts; `--demo-v10` builds separate **unsent** edge1/edge2 v10 demo targets. No script uploads automatically; repeated installed versions are rejected. Builds remain under ignored `noise_experiments/`, not Git. Both v9 and v10 images fit 1,310,720-byte OTA slots and exclude provisioned raw private X25519 identities.
+
+**Hardware proof:** Signed HTTPS→Noise edge1 **v7→v9** and edge2 **v8→v9** resulted in valid authenticated `v9_ota2` states. Edge1 USB serial logged first-boot authenticated registration and confirmation. With both edges v9 and continuously powered, **two separate controller-only resets** each returned simultaneous authenticated v9/v9 status in ~25–26 seconds without manual edge power cycles. A subsequent signed controller v10→v11 **HTTPS OTA reboot** again returned controller v11 valid and both edges v9 authenticated/valid without touching edge power. Edge1 separately passed two controller-only reset/rejoin trials while directly attached for serial diagnosis (~27 and ~34 seconds). These observations demonstrate rejoin in this setup; repeated outage, power-loss and stress cases remain untested.
+
+**Important negative result:** Earlier edge1 v8 upload did reach pending boot, but timed out and rolled back to v7. Both browser status logging and sender polling were querying controller status concurrently; later success also changed the sender's polling delay and the v9 first-boot timeout. Do **not** attribute that first failure to the 500-ms reconnect calls alone. See `HTTPS_RUNTIME_TEST.md` for the full timeline.
+
+**Recovery/scope:** Controller v8 full-flash snapshot exists in ignored, mode-0600 `private_keys/flash_snapshots/full_controller_*/`, twice verified in 64 KiB chunks with NVS and signed v8 app, but still **unencrypted locally and not independently restored**. Edge full-flash snapshots are absent; static identities and signer were backed up earlier locally but off-device restore and cloud sync were not independently verified. Do not distribute snapshots/keys or claim hardware extraction resistance.

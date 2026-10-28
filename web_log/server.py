@@ -26,6 +26,7 @@ EVENTS_FILE = ROOT / "noise_experiments" / "web_log_events.jsonl"  # ignored
 ASSETS = Path(__file__).resolve().parent
 CONTROLLER_URL = "http://192.168.4.1/status"
 CONTROLLER = re.compile(r"\brole=0 version=(\d+) noise=([01])\b")
+TLS = re.compile(r"\btls=([01])\b") # newer controller: upload listener; /status remains HTTP
 EDGE = re.compile(r"\bedge([12])_secure=(v(\d+)_ota(\d+)_minheap(\d+)_stack(\d+)_rttms(\d+)|unregistered|offline|auth_failed|bad_status|crypto_unavailable)\b")
 OTA = re.compile(r"\bota=(valid|pending|unknown|invalid|aborted|new)\b")
 MIN_HEAP = re.compile(r"\bminheap=(\d+)\b")
@@ -48,7 +49,7 @@ def demo_ip() -> bool:
 def parse_status(raw: str) -> dict:
     if len(raw) > 2048 or "\n" in raw.strip("\n"):
         raise ValueError("Unexpected controller status format")
-    controller, ota = CONTROLLER.search(raw), OTA.search(raw)
+    controller, ota, tls = CONTROLLER.search(raw), OTA.search(raw), TLS.search(raw)
     if not controller or not ota:
         raise ValueError("Response was not a Noise controller status")
     edges = {}
@@ -69,6 +70,7 @@ def parse_status(raw: str) -> dict:
     stack = STACK.search(raw)
     return {
         "controller": {"version": int(controller[1]), "noise": controller[2] == "1",
+                       "tls": tls[1] == "1" if tls else False,
                        "ota": ota[1], "min_heap": int(heap[1]) if heap else None,
                        "stack_margin": int(stack[1]) if stack else None},
         "edges": edges,

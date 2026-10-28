@@ -1,4 +1,6 @@
-# Live OTA demo, prepared but **NOT YET SENT**
+# HISTORICAL live OTA plan — v8 controller / v7 edges, **NO LONGER CURRENT**
+
+**STOP: Do not run the commands below on today's boards.** They now report controller **v11 valid**, both edges **v9 valid**. These earlier edge v8/controller v9 images were consumed or superseded during the HTTPS hardware run. Use [`HTTPS_LIVE_DEMO.md`](HTTPS_LIVE_DEMO.md) for the new prepared edge v10/controller v12 one-use presentation and [`HTTPS_RUNTIME_TEST.md`](HTTPS_RUNTIME_TEST.md) for exact evidence, including the failed edge1 v8 pending boot.
 
 **Current boards, verified in `NOISE_RUNTIME_TEST.md`:** controller **v8** (`ota=valid`), edge1 **v7** (`ota2=valid`), edge2 **v7** (`ota2=valid`). Both edges authenticated with Noise when powered. Existing v8/v7 images **cannot be resent**: the signed version checks deliberately reject duplicates. This document provides **newer** signed images for a *single future live update*. Do not rehearse with them and expect to use the same versions again on stage.
 
