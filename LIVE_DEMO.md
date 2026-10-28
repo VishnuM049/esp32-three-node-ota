@@ -8,7 +8,7 @@
 
 1. Charge the Mac. Keep the proven boards and all three USB/NVS identities as-is. Back up the ignored `noise_experiments/*_encrypted_v8_build/` edge and `controller_encrypted_v9_build/` **locally in an encrypted location** if you need to move Macs; do not publish firmware artifacts. The signing identity backup is separate.
 2. Power **controller first**, then both edges. Give them 10–20 seconds to register. If they do not re-register after a controller reboot, unplug/replug **edge power only**; this manual workaround was needed in the hardware run. Do not flash or resend an image to fix registration.
-3. Connect Mac Wi-Fi to `OTA-CLASS-DEMO` (password `demo-ota-1234`). This temporarily interrupts normal internet. `curl --noproxy '*' --max-time 20 http://192.168.4.1/status` must show controller `role=0 version=8 noise=1 ota=valid`, `edge1_secure=v7_ota2_...`, `edge2_secure=v7_ota2_...` **in the same response**. If not, STOP and diagnose power/registration; sender refuses to upload.
+3. Optionally start the **Mac-local browser web log** in a separate Terminal: `python3 web_log/server.py`, then open `http://127.0.0.1:8765/`. See `WEB_LOG.md`; it is read-only and logs future observations. Connect Mac Wi-Fi to `OTA-CLASS-DEMO` (password `demo-ota-1234`). This temporarily interrupts normal internet. `curl --noproxy '*' --max-time 20 http://192.168.4.1/status` must show controller `role=0 version=8 noise=1 ota=valid`, `edge1_secure=v7_ota2_...`, `edge2_secure=v7_ota2_...` **in the same response**. If not, STOP and diagnose power/registration; sender refuses to upload.
 
 ## On stage: real version change, one use per role
 

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Fleet record · Three-node OTA</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topline">
+      <a class="wordmark" href="/" aria-label="Fleet record home">OTA / FLEET</a>
+      <span class="locality">127.0.0.1 <span aria-hidden="true">·</span> Read-only on this Mac</span>
+    </header>
+
+    <main>
+      <div class="intro">
+        <div>
+          <h1>Fleet<br><span>record.</span></h1>
+          <p class="intro-copy">One controller. Two independently verified edges.<br> Observed state and a timestamped local event history.</p>
+        </div>
+        <div class="connection" id="connection" role="status" aria-live="polite">
+          <span class="connection-indicator" aria-hidden="true"></span>
+          <span id="connection-text">Checking demo network…</span>
+        </div>
+      </div>
+
+      <section class="fleet" aria-labelledby="fleet-title">
+        <div class="section-heading">
+          <h2 id="fleet-title">Current observation</h2>
+          <p id="last-seen">No controller observation yet</p>
+        </div>
+        <div class="node-grid" id="node-grid">
+          <article class="node" data-node="controller">
+            <div class="node-head"><span class="node-index">00</span><h3>Controller</h3></div>
+            <div class="version-row"><span class="version" data-field="version">—</span><span class="version-unit">firmware<br>version</span></div>
+            <p class="node-state" data-field="state">Waiting for observation</p>
+            <dl class="readings"><div><dt>Min free heap</dt><dd data-field="heap">—</dd></div><div><dt>Stack margin</dt><dd data-field="stack">—</dd></div></dl>
+          </article>
+          <article class="node" data-node="edge1">
+            <div class="node-head"><span class="node-index">01</span><h3>Edge 1</h3></div>
+            <div class="version-row"><span class="version" data-field="version">—</span><span class="version-unit">firmware<br>version</span></div>
+            <p class="node-state" data-field="state">Waiting for observation</p>
+            <dl class="readings"><div><dt>Min free heap</dt><dd data-field="heap">—</dd></div><div><dt>Stack margin</dt><dd data-field="stack">—</dd></div></dl>
+          </article>
+          <article class="node" data-node="edge2">
+            <div class="node-head"><span class="node-index">02</span><h3>Edge 2</h3></div>
+            <div class="version-row"><span class="version" data-field="version">—</span><span class="version-unit">firmware<br>version</span></div>
+            <p class="node-state" data-field="state">Waiting for observation</p>
+            <dl class="readings"><div><dt>Min free heap</dt><dd data-field="heap">—</dd></div><div><dt>Stack margin</dt><dd data-field="stack">—</dd></div></dl>
+          </article>
+        </div>
+        <p class="observation-note">An unregistered edge shows no current authenticated version; previous observations remain in the event log. When the Mac is offline, the last full snapshot is marked stale.</p>
+      </section>
+
+      <section class="ledger" aria-labelledby="ledger-title">
+        <div class="section-heading ledger-heading">
+          <div><h2 id="ledger-title">Event log</h2><p>Status transitions and one-shot sender results, recorded on this Mac.</p></div>
+          <div class="filter" role="group" aria-label="Filter events">
+            <button type="button" class="active" data-filter="all" aria-pressed="true">All</button>
+            <button type="button" data-filter="upload" aria-pressed="false">Uploads</button>
+            <button type="button" data-filter="connection" aria-pressed="false">Connections</button>
+          </div>
+        </div>
+        <div class="table-scroll">
+          <table><thead><tr><th scope="col">Time</th><th scope="col">Node</th><th scope="col">Event</th><th scope="col">Observed result</th></tr></thead>
+          <tbody id="event-rows"><tr><td colspan="4" class="empty">Waiting for the first observation. Nothing historical is invented.</td></tr></tbody></table>
+        </div>
+      </section>
+
+      <aside class="boundary" aria-label="Security scope">
+        <span class="boundary-rule" aria-hidden="true"></span>
+        <p><strong>What the line protects</strong><br>Controller ↔ edge uses pinned Noise KK. Laptop → controller is plaintext HTTP on the same demo AP. This log is presentation evidence, not a tamper-proof audit trail.</p>
+        <p class="boundary-action">Uploads are deliberately unavailable here. Run the signed one-shot sender only when ready.</p>
+      </aside>
+    </main>
+
+    <footer><span>Three-node signed OTA</span><span>Local browser log · No firmware writes</span></footer>
+  </div>
+</body>
+</html>

@@ -53,23 +53,32 @@ else
 fi
 hex=$(xxd -p -c 256 "$manifest" | tr -d '\n')
 [[ ${#hex} == 218 ]] || { echo 'STOP: wrong manifest size' >&2; exit 1; }
+log_result() {
+  python3 "$ROOT/web_log/record_event.py" "$1" "$version" "$2" ||
+    echo 'Warning: Mac-local web event log could not be written; OTA is independent.' >&2
+}
 echo "ONE-SHOT signed ${1} v${version} OTA; NO RETRIES if anything times out."
+log_result "$1" started
 response=$(curl --noproxy '*' --connect-timeout 5 --max-time 240 --fail-with-body -sS \
   -H 'Expect:' -H 'Content-Type: application/octet-stream' \
   -H "X-OTA-Manifest: $hex" --data-binary "@$image" \
   "http://192.168.4.1/$endpoint") || {
+    log_result "$1" ambiguous
     echo 'STOP: ambiguous upload response. Query status/serial; do NOT resend blindly.' >&2; exit 1;
   }
 echo "$response"
 if (( role == 0 )); then
   [[ "$response" == *'Signed image accepted; rebooting'* ]] || {
+    log_result "$1" ambiguous
     echo 'STOP: unexpected response; query status and do NOT resend.' >&2; exit 1;
   }
 else
   [[ "$response" == *'Authenticated edge accepted signed image; rebooting'* ]] || {
+    log_result "$1" ambiguous
     echo 'STOP: unexpected response; query status and do NOT resend.' >&2; exit 1;
   }
 fi
+log_result "$1" accepted
 for i in {1..10}; do
   sleep 3
   state=$(curl --noproxy '*' --connect-timeout 3 --max-time 18 --fail-with-body -sS \
@@ -77,15 +86,18 @@ for i in {1..10}; do
   echo "After $i: $state"
   if (( role == 0 )); then
     if [[ "$state" == *'role=0 version=9 noise=1'* && "$state" == *'ota=valid'* ]]; then
+      log_result "$1" confirmed
       echo 'CONFIRMED controller v9 OTA valid. If edges are unregistered, power-cycle each edge ONCE; do not resend firmware.'
       exit 0
     fi
   else
     if [[ "$state" == *"edge${role}_secure=v${version}_ota2_"* ]]; then
+      log_result "$1" confirmed
       echo "CONFIRMED edge${role} v${version} OTA valid over authenticated Noise."
       exit 0
     fi
   fi
 done
+log_result "$1" ambiguous
 echo 'STOP: no independent valid-boot confirmation. Inspect status/serial; NEVER retry automatically.' >&2
 exit 1
