@@ -38,6 +38,14 @@ static const IPAddress gateway(192, 168, 4, 1);
 static IPAddress edge1(0, 0, 0, 0);
 static IPAddress edge2(0, 0, 0, 0);
 static unsigned long lastRegister = 0;
+static unsigned long lastReconnectAttempt = 0;
+static bool edgeWasConnected = false;
+static const unsigned long RECONNECT_RETRY_MS = 10000;
+static const unsigned long REGISTER_RETRY_MS = 5000;
+// The original 30-second window was exhausted under concurrent status polls
+// during an HTTPS upload. Still require pinned-controller authentication;
+// give a recovering AP up to 90 seconds before rolling back a pending image.
+static const unsigned long FIRST_BOOT_VERIFY_MS = 90000;
 static const uint16_t port = 80; // Laptop-facing HTTP ONLY on controller.
 static const size_t MAX_IMAGE = 0x140000; // default 4MB partition table: 1.25MB OTA slots
 static const unsigned long IDLE_TIMEOUT_MS = 12000;
@@ -406,6 +414,7 @@ void setup() {
     Serial.print("Controller address: "); Serial.println(WiFi.softAPIP());
   } else {
     WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
     WiFi.begin(AP_NAME, AP_PASSWORD);
     Serial.printf("Edge %d joining controller", NODE_ROLE);
     unsigned long start = millis();
@@ -414,6 +423,8 @@ void setup() {
       Serial.print('.');
     }
     networkReady = WiFi.status() == WL_CONNECTED;
+    edgeWasConnected = networkReady;
+    lastReconnectAttempt = millis(); // do not interrupt the association just started by WiFi.begin()
     Serial.print("\nEdge address: "); Serial.println(WiFi.localIP());
   }
   if (NODE_ROLE == 0) webServer.begin();
@@ -453,9 +464,28 @@ void loop() {
   WiFiClient peer = peerServer.available();
   if (peer) { if (noiseReady) handlePeer(peer); peer.stop(); }
   if (NODE_ROLE != 0) {
-    if (WiFi.status() != WL_CONNECTED) { WiFi.reconnect(); delay(500); }
-    else if (noiseReady && millis() - lastRegister > 5000) {
+    bool connected = WiFi.status() == WL_CONNECTED;
+    if (!connected) {
+      if (edgeWasConnected) Serial.println("Wi-Fi lost; waiting for automatic reconnection");
+      edgeWasConnected = false;
+      // Calling reconnect() every loop (formerly every ~500ms) can cancel an
+      // in-flight Wi-Fi association. Let the core retry; only nudge at 10s.
+      if (millis() - lastReconnectAttempt >= RECONNECT_RETRY_MS) {
+        lastReconnectAttempt = millis();
+        WiFi.reconnect();
+      }
+    } else {
+      if (!edgeWasConnected) {
+        Serial.print("Wi-Fi restored: "); Serial.println(WiFi.localIP());
+        // Force a fresh Noise REGISTER: the controller may have rebooted and
+        // lost our old IP. This is NOT authentication until REGISTER_OK arrives.
+        lastRegister = millis() - REGISTER_RETRY_MS - 1;
+      }
+      edgeWasConnected = true;
+    }
+    if (connected && noiseReady && millis() - lastRegister >= REGISTER_RETRY_MS) {
       lastRegister = millis();
+      bool authenticated = false;
       WiFiClient registration;
       if (registration.connect(gateway, 8081, 1000) &&
           registration.write((uint8_t)NODE_ROLE) == 1) {
@@ -465,6 +495,8 @@ void loop() {
         if (secure.begin(registration, NODE_ROLE, true) &&
             secure.send(&command, 1) && secure.receive(response, size) &&
             size == 1 && response[0] == 0x02) {
+          authenticated = true;
+          // The controller only trusts the fresh authenticated REGISTER record.
           // A first-boot edge is not confirmed until its controller pin works.
           if (pendingEdgeVerification) {
             if (esp_ota_mark_app_valid_cancel_rollback() == ESP_OK) {
@@ -475,11 +507,14 @@ void loop() {
         }
       }
       registration.stop();
+      if (pendingEdgeVerification && !authenticated)
+        Serial.printf("Pending image: registration retry failed after %lu ms, Wi-Fi state=%d\n",
+                      millis() - edgeVerificationStarted, (int)WiFi.status());
     }
   }
-  if (pendingEdgeVerification && millis() - edgeVerificationStarted > 30000) {
+  if (pendingEdgeVerification && millis() - edgeVerificationStarted > FIRST_BOOT_VERIFY_MS) {
     pendingEdgeVerification = false;
-    Serial.println("No authenticated controller within 30s; reverting OTA image");
+    Serial.println("No authenticated controller within 90s; reverting OTA image");
     esp_err_t err = esp_ota_mark_app_invalid_rollback_and_reboot();
     Serial.printf("ERROR: edge rollback failed: %d (USB recovery may be needed)\n", (int)err);
   }
