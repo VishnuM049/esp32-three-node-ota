@@ -26,8 +26,8 @@ fi
 }
 role="${2#edge}"; image="$ROOT/noise_experiments/${2}_encrypted_v8_build/${2}_encrypted_v8.ino.bin"
 manifest="$image.manifest"
-[[ "$status" == *"${2}_secure=v7_ota2_"* && "$status" =~ edge1_secure=v(7|8)_ota2_ &&
-   "$status" =~ edge2_secure=v(7|8)_ota2_ ]] || {
+[[ "$status" == *"${2}_secure=v7_ota2_"* && "$status" =~ edge1_secure=v(7|8|9)_ota2_ &&
+   "$status" =~ edge2_secure=v(7|8|9)_ota2_ ]] || {
   echo 'STOP: target must be v7; both edges must be authenticated and valid; no upload' >&2; exit 1;
 }
 [[ -s "$image" && -s "$manifest" ]] || { echo 'Missing prepared one-shot edge image' >&2; exit 1; }
@@ -59,8 +59,12 @@ echo "$response"
 [[ "$response" == *'Authenticated edge accepted signed image; rebooting'* ]] || {
   echo 'Unexpected reply; inspect status; NEVER blindly retry.' >&2; exit 1;
 }
+# A first-boot edge has 30 seconds to authenticate its controller. Don't
+# starve the controller's single loop with /status queries during that window.
+echo 'Waiting 20s without status polling for edge first-boot registration.'
+sleep 20
 for i in {1..10}; do
-  sleep 3
+  sleep 4
   after=$(curl --noproxy '*' --connect-timeout 3 --max-time 18 --fail-with-body -sS \
     http://192.168.4.1/status 2>/dev/null || :)
   echo "After $i: $after"
