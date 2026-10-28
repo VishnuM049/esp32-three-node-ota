@@ -4,7 +4,7 @@ set -euo pipefail
 umask 077
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 mode="${1:---ota}"
-[[ $# -le 1 && ( "$mode" == --ota || "$mode" == --usb || "$mode" == --ota-v11 ) ]] || { echo 'Usage: build_https_candidate.sh [--ota|--usb|--ota-v11]' >&2; exit 2; }
+[[ $# -le 1 && ( "$mode" == --ota || "$mode" == --usb || "$mode" == --ota-v11 || "$mode" == --demo-v12 ) ]] || { echo 'Usage: build_https_candidate.sh [--ota|--usb|--ota-v11|--demo-v12]' >&2; exit 2; }
 CLI='/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli'
 PORT="$ROOT/noise_experiments/noise_probe/src"
 [[ -f "$PORT/protocol/handshakestate.c" ]] || { echo 'Pinned local Noise-C missing' >&2; exit 1; }
@@ -12,6 +12,7 @@ version=10
 name=https_controller_v10_candidate
 [[ "$mode" == --usb ]] && name=https_controller_v10_usb_private
 if [[ "$mode" == --ota-v11 ]]; then version=11; name=https_controller_v11_candidate; fi
+if [[ "$mode" == --demo-v12 ]]; then version=12; name=https_controller_v12_demo; fi
 sketch="$ROOT/noise_experiments/$name"
 out="$ROOT/noise_experiments/${name}_build"
 mkdir -p "$sketch" "$out"
@@ -55,10 +56,10 @@ if b'POST image with valid Content-Length required' in data:
     raise SystemExit('STOP: legacy plaintext HTTP update linked in')
 print(f'LOCAL-ONLY {mode} candidate: {len(data)} / {0x140000} bytes; legacy HTTP POST absent.')
 PY
-if [[ "$mode" == --ota-v11 ]]; then
+if [[ "$mode" == --ota-v11 || "$mode" == --demo-v12 ]]; then
   "$ROOT/.venv/bin/python" "$ROOT/host_signing/manifest.py" sign \
-    --private "$ROOT/private_keys/demo.pem" --image "$image" --role 0 --version 11
+    --private "$ROOT/private_keys/demo.pem" --image "$image" --role 0 --version "$version"
   "$ROOT/.venv/bin/python" "$ROOT/host_signing/manifest.py" verify \
     --public "$ROOT/private_keys/demo_public.bin" --image "$image" \
-    --manifest "$image.manifest" --role 0 --current-version 10
+    --manifest "$image.manifest" --role 0 --current-version "$((version - 1))"
 fi
