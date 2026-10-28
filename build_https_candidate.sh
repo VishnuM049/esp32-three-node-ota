@@ -1,0 +1,55 @@
+#!/bin/bash
+# Compile-only separate controller v10 experiment. NEVER flashes or signs.
+set -euo pipefail
+umask 077
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+mode="${1:---ota}"
+[[ $# -le 1 && ( "$mode" == --ota || "$mode" == --usb ) ]] || { echo 'Usage: build_https_candidate.sh [--ota|--usb]' >&2; exit 2; }
+CLI='/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli'
+PORT="$ROOT/noise_experiments/noise_probe/src"
+[[ -f "$PORT/protocol/handshakestate.c" ]] || { echo 'Pinned local Noise-C missing' >&2; exit 1; }
+name=https_controller_v10_candidate
+[[ "$mode" == --usb ]] && name=https_controller_v10_usb_private
+sketch="$ROOT/noise_experiments/$name"
+out="$ROOT/noise_experiments/${name}_build"
+mkdir -p "$sketch" "$out"
+rm -rf "$sketch/src" "$out/.arduino-build" # ignored candidate ONLY; no stale duplicate sources
+cp -R "$PORT" "$sketch/src"
+cp "$ROOT/https_experiment/noise_firmware.ino" "$sketch/$name.ino"
+cp "$ROOT/https_experiment/"{NoiseLink.cpp,NoiseLink.h,IdentityStore.cpp,IdentityStore.h} "$ROOT/TrustedPublicKey.h" "$sketch/"
+cp "$ROOT/private_keys/noise/generated_public/controller.h" "$sketch/LinkPublicPins.h"
+extra=''
+if [[ "$mode" == --usb ]]; then
+  "$ROOT/https_experiment/prepare_tls_identity.sh"
+  cp "$ROOT/https_experiment/TlsBootstrap.cpp" "$sketch/"
+  cp "$ROOT/noise_experiments/https_tls_bootstrap/TlsBootstrapPrivate.h" "$sketch/"
+  extra=' -DTLS_USB_BOOTSTRAP=1'
+else
+  [[ ! -e "$sketch/TlsBootstrapPrivate.h" && ! -e "$sketch/BootstrapPrivate.h" ]] || {
+    echo 'STOP: private key in OTA build directory' >&2; exit 1;
+  }
+fi
+"$CLI" --config-file "$HOME/.arduinoIDE/arduino-cli.yaml" compile -b esp32:esp32:esp32 -j 2 \
+  --build-property "compiler.c.extra_flags=-DUSE_LIBSODIUM=1 -Dnoise_init=noisec_init -I$sketch/src -I$sketch/src/protocol" \
+  --build-property "compiler.cpp.extra_flags=-DNODE_ROLE=0 -DFW_VERSION=10$extra -Dnoise_init=noisec_init -I$sketch/src" \
+  --build-path "$out/.arduino-build" --output-dir "$out" "$sketch"
+image="$out/$name.ino.bin"
+ROOT="$ROOT" IMAGE="$image" MODE="$mode" "$ROOT/.venv/bin/python" - <<'PY'
+from pathlib import Path
+import os
+root, image = Path(os.environ['ROOT']), Path(os.environ['IMAGE'])
+data = image.read_bytes()
+mode = os.environ['MODE']
+if len(data) > 0x140000: raise SystemExit('STOP: exceeds OTA partition')
+for role in ('controller', 'edge1', 'edge2'):
+    key = (root / 'private_keys/noise' / f'{role}.x25519').read_bytes()
+    if len(key) != 32 or key in data: raise SystemExit('STOP: static identity embedded in OTA binary')
+tls_key = root / 'private_keys' / 'host_tls' / 'server.key'
+if mode == '--ota' and tls_key.exists() and tls_key.read_bytes() in data:
+    raise SystemExit('STOP: actual TLS private key embedded in OTA binary')
+if mode == '--usb' and (not tls_key.exists() or tls_key.read_bytes() not in data):
+    raise SystemExit('STOP: USB-only image missing expected TLS provisioning key')
+if b'POST image with valid Content-Length required' in data:
+    raise SystemExit('STOP: legacy plaintext HTTP update linked in')
+print(f'COMPILE-ONLY {mode} candidate: {len(data)} / {0x140000} bytes; legacy HTTP POST absent.')
+PY
