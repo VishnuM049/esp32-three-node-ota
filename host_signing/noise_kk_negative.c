@@ -41,9 +41,10 @@ static int test_session(int wrong_pin, int wrong_prologue, int tamper_handshake)
         "Noise_KK_25519_ChaChaPoly_SHA256", NOISE_ROLE_INITIATOR));
     REQUIRE(noise_handshakestate_new_by_name(&edge,
         "Noise_KK_25519_ChaChaPoly_SHA256", NOISE_ROLE_RESPONDER));
-    REQUIRE(noise_handshakestate_set_prologue(controller, "ota:edge1", 9));
-    REQUIRE(noise_handshakestate_set_prologue(edge,
-        wrong_prologue ? "ota:edge2" : "ota:edge1", 9));
+    const char *context = "ESP32-OTA-LINK-v1/edge1";
+    const char *remote_context = wrong_prologue ? "ESP32-OTA-LINK-v1/edge2" : context;
+    REQUIRE(noise_handshakestate_set_prologue(controller, context, strlen(context)));
+    REQUIRE(noise_handshakestate_set_prologue(edge, remote_context, strlen(remote_context)));
     REQUIRE(noise_dhstate_set_keypair_private(
         noise_handshakestate_get_local_keypair_dh(controller), controller_private, 32));
     REQUIRE(noise_dhstate_set_keypair_private(

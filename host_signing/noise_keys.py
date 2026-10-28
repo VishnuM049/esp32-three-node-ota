@@ -84,9 +84,32 @@ def emit_header(directory: Path, role: str) -> Path:
     return output
 
 
+def emit_public_header(directory: Path, role: str) -> Path:
+    """Public-only role pins for BOTH bootstrap and key-free OTA firmware."""
+    if role not in ROLES:
+        raise ValueError("Unknown role")
+    pins = json.loads((directory / "public_pins.json").read_text())
+    if set(pins) != set(ROLES) or any(len(bytes.fromhex(pins[r])) != 32 for r in ROLES):
+        raise ValueError("Incomplete public pins")
+    peers = ("edge1", "edge2") if role == "controller" else ("controller",)
+    text = ("// PUBLIC X25519 pins ONLY. Do not include private key bytes here.\n"
+            "#pragma once\n#include <stdint.h>\n"
+            f"#define NOISE_LOCAL_ROLE {IDS[role]}\n")
+    text += _as_c("NOISE_LOCAL_PUBLIC", bytes.fromhex(pins[role]))
+    for peer in peers:
+        text += _as_c(f"NOISE_PINNED_{peer.upper()}", bytes.fromhex(pins[peer]))
+    outdir = directory / "generated_public"
+    outdir.mkdir(mode=0o700, exist_ok=True)
+    output = outdir / f"{role}.h"
+    fd = os.open(output, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+    with os.fdopen(fd, "w", encoding="ascii") as stream:
+        stream.write(text)
+    return output
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=("init", "header"))
+    parser.add_argument("action", choices=("init", "header", "public-header"))
     parser.add_argument("--directory", type=Path, default=DEFAULT_DIR)
     parser.add_argument("--role", choices=ROLES)
     args = parser.parse_args()
@@ -100,8 +123,11 @@ def main():
             print(f"  {role}: {public[:12]}")
     else:
         if not args.role:
-            parser.error("header requires --role")
-        print("Generated ignored secret role-specific header:", emit_header(args.directory, args.role))
+            parser.error(f"{args.action} requires --role")
+        if args.action == "header":
+            print("Generated ignored secret bootstrap-only header:", emit_header(args.directory, args.role))
+        else:
+            print("Generated role public pins (no private bytes):", emit_public_header(args.directory, args.role))
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ import unittest
 
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey
 from cryptography.hazmat.primitives import serialization
-from noise_keys import ROLES, provision, emit_header
+from noise_keys import ROLES, provision, emit_header, emit_public_header
 
 
 class ProvisioningTests(unittest.TestCase):
@@ -54,6 +54,19 @@ class ProvisioningTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 emit_header(self.directory, role)
         self.assertEqual(set(pins), set(ROLES))
+
+    def test_public_headers_contain_no_private_material(self):
+        pins = provision(self.directory)
+        for role in ROLES:
+            header = emit_public_header(self.directory, role)
+            text = header.read_text()
+            public_prefix = ', '.join(f'0x{byte:02x}' for byte in bytes.fromhex(pins[role])[:8])
+            self.assertIn(public_prefix, text)
+            self.assertIn('NOISE_LOCAL_PUBLIC', text)
+            self.assertNotIn('NOISE_LOCAL_PRIVATE', text)
+            self.assertNotIn((self.directory / f'{role}.x25519').read_bytes().hex(), text)
+            with self.assertRaises(FileExistsError):
+                emit_public_header(self.directory, role)
 
     def test_mismatched_role_key_fails_before_header_created(self):
         provision(self.directory)
