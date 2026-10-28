@@ -1,6 +1,6 @@
 # Noise hardware run — signed OTA succeeded; manual reconnection required (2026-10-28)
 
-**DO NOT resend signed images to repeat this run.** These are observed hardware results, not an audited or fully tested security product. Mac→controller HTTP remains plaintext. The app OTA targets contained no provisioned raw X25519 key bytes; bootstrap USB binaries did contain one private identity each.
+**DO NOT resend signed images to repeat this run.** For new one-time live-demo images and instructions, see `LIVE_DEMO.md`. These are observed hardware results, not an audited or fully tested security product. Mac→controller HTTP remains plaintext. The app OTA targets contained no provisioned raw X25519 key bytes; bootstrap USB binaries did contain one private identity each.
 
 ## Completed
 

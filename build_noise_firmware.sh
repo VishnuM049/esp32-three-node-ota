@@ -5,8 +5,8 @@ set -euo pipefail
 umask 077 # bootstrap images and build objects may embed private X25519 keys
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 mode="${1:---bootstrap}"
-[[ $# -le 1 && ( "$mode" == --bootstrap || "$mode" == --ota-targets ) ]] || {
-  echo "Usage: $0 [--bootstrap|--ota-targets] (COMPILE ONLY, no device upload)" >&2; exit 2;
+[[ $# -le 1 && ( "$mode" == --bootstrap || "$mode" == --ota-targets || "$mode" == --demo-next ) ]] || {
+  echo "Usage: $0 [--bootstrap|--ota-targets|--demo-next] (COMPILE ONLY, no device upload)" >&2; exit 2;
 }
 SRC="$ROOT/noise_firmware"
 PORT="$ROOT/noise_experiments/noise_probe/src"
@@ -22,6 +22,7 @@ for role in controller edge1 edge2; do
     edge2) id=2; version=6;;
   esac
   if [[ "$mode" == --ota-targets ]]; then version=$((version + 1)); fi
+  if [[ "$mode" == --demo-next ]]; then version=$((version + 2)); fi
   secret="$ROOT/private_keys/noise/generated/$role.h"
   public="$ROOT/private_keys/noise/generated_public/$role.h"
   [[ -f "$secret" && -f "$public" ]] || { echo "Missing $role local provisioning headers" >&2; exit 1; }
@@ -43,8 +44,8 @@ for role in controller edge1 edge2; do
   output="$ROOT/noise_experiments/${name}_build"
   mkdir -p "$output"
   rm -rf "$output/.arduino-build" # no stale key-bearing object files
-  if [[ "$mode" == --ota-targets ]]; then
-    rm -f "$output/$name.ino.bin" "$output/$name.ino.bin.manifest" # forbid stale signed key-bearing OTA
+  if [[ "$mode" != --bootstrap ]]; then
+    rm -f "$output/$name.ino.bin" "$output/$name.ino.bin.manifest" # forbid stale signed artifacts
     [[ ! -e "$sketch/BootstrapPrivate.h" && ! -e "$sketch/BootstrapIdentity.cpp" ]] || exit 1
   fi
   chmod -R go-rwx "$sketch" "$output"
@@ -85,7 +86,7 @@ if present != expected:
     raise SystemExit(f'WRONG PRIVATE KEY CONTENT in {mode} image for {role}: {present}; refusing sign/flash')
 print('Private identity content check:', 'USB role only' if expected else 'NO PRIVATE KEYS in OTA image')
 PY
-  if [[ "$mode" == --ota-targets ]]; then
+  if [[ "$mode" != --bootstrap ]]; then
     "$ROOT/.venv/bin/python" "$ROOT/host_signing/manifest.py" sign \
       --private "$ROOT/private_keys/demo.pem" --image "$image" --role "$id" --version "$version"
     "$ROOT/.venv/bin/python" "$ROOT/host_signing/manifest.py" verify \
