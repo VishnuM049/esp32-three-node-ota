@@ -11,15 +11,15 @@
 <body>
   <div class="shell">
     <header class="topline">
-      <a class="wordmark" href="/" aria-label="Fleet record home">OTA / FLEET</a>
-      <span class="locality">127.0.0.1 <span aria-hidden="true">·</span> Read-only on this Mac</span>
+      <a class="wordmark" href="/" aria-label="OTA fleet log home">OTA fleet / log</a>
+      <span class="locality">localhost · read only</span>
     </header>
 
     <main>
       <div class="intro">
         <div>
-          <h1>Fleet<br><span>record.</span></h1>
-          <p class="intro-copy">One controller. Two independently verified edges.<br> Observed state and a timestamped local event history.</p>
+          <h1>Fleet status</h1>
+          <p class="intro-copy">Controller and edge versions, boot state, and timestamped update events.</p>
         </div>
         <div class="connection" id="connection" role="status" aria-live="polite">
           <span class="connection-indicator" aria-hidden="true"></span>
@@ -34,20 +34,20 @@
         </div>
         <div class="node-grid" id="node-grid">
           <article class="node" data-node="controller">
-            <div class="node-head"><span class="node-index">00</span><h3>Controller</h3></div>
-            <div class="version-row"><span class="version" data-field="version">—</span><span class="version-unit">firmware<br>version</span></div>
+            <div class="node-head"><h3>Controller</h3></div>
+            <div class="version-row"><span class="version" data-field="version">—</span><span class="version-unit">firmware version</span></div>
             <p class="node-state" data-field="state">Waiting for observation</p>
             <dl class="readings"><div><dt>Min free heap</dt><dd data-field="heap">—</dd></div><div><dt>Stack margin</dt><dd data-field="stack">—</dd></div></dl>
           </article>
           <article class="node" data-node="edge1">
-            <div class="node-head"><span class="node-index">01</span><h3>Edge 1</h3></div>
-            <div class="version-row"><span class="version" data-field="version">—</span><span class="version-unit">firmware<br>version</span></div>
+            <div class="node-head"><h3>Edge 1</h3></div>
+            <div class="version-row"><span class="version" data-field="version">—</span><span class="version-unit">firmware version</span></div>
             <p class="node-state" data-field="state">Waiting for observation</p>
             <dl class="readings"><div><dt>Min free heap</dt><dd data-field="heap">—</dd></div><div><dt>Stack margin</dt><dd data-field="stack">—</dd></div></dl>
           </article>
           <article class="node" data-node="edge2">
-            <div class="node-head"><span class="node-index">02</span><h3>Edge 2</h3></div>
-            <div class="version-row"><span class="version" data-field="version">—</span><span class="version-unit">firmware<br>version</span></div>
+            <div class="node-head"><h3>Edge 2</h3></div>
+            <div class="version-row"><span class="version" data-field="version">—</span><span class="version-unit">firmware version</span></div>
             <p class="node-state" data-field="state">Waiting for observation</p>
             <dl class="readings"><div><dt>Min free heap</dt><dd data-field="heap">—</dd></div><div><dt>Stack margin</dt><dd data-field="stack">—</dd></div></dl>
           </article>
@@ -71,8 +71,7 @@
       </section>
 
       <aside class="boundary" aria-label="Security scope">
-        <span class="boundary-rule" aria-hidden="true"></span>
-        <p><strong>What the line protects</strong><br>Controller ↔ edge uses pinned Noise KK. Laptop → controller is plaintext HTTP on the same demo AP. This log is presentation evidence, not a tamper-proof audit trail.</p>
+        <p><strong>Transport note.</strong> Controller ↔ edge uses pinned Noise KK. Laptop → controller is plaintext HTTP on the same demo AP. This log is presentation evidence, not a tamper-proof audit trail.</p>
         <p class="boundary-action">Uploads are deliberately unavailable here. Run the signed one-shot sender only when ready.</p>
       </aside>
     </main>
