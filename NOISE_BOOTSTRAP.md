@@ -1,6 +1,6 @@
 # Noise link hardware gate — historical runbook; **do not repeat flashes/OTAs**
 
-**USB bootstrap and three signed OTAs have already been executed.** Controller v8 and both edges v7 each reported valid, but after controller v8 reboot the edges were unregistered; see `NOISE_RUNTIME_TEST.md` before taking any further action. These commands document what was used, **not instructions to resend historical versions**. `NOISE_LINK_PLAN.md` is the security contract.
+**USB bootstrap and three signed OTAs have already been executed.** Controller v8 and both edges v7 each reported valid; after controller v8 reboot, the edges registered **only after manual power cycles**. Final simultaneous secure statuses were confirmed; see `NOISE_RUNTIME_TEST.md` before taking any further action. These commands document what was used, **not instructions to resend historical versions**. `NOISE_LINK_PLAN.md` is the security contract.
 
 ## Before touching USB
 
